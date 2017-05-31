@@ -73,6 +73,8 @@ public class Slack {
 	private static final String CMD_RESERVE_LONG = "reserve";
 
 	private static final String CMD_CLEAR = "clear";
+
+	private static final String CMD_CLEAN = "clean";
 	
 	private static final Set< String > allCommands = new HashSet<>();
 	
@@ -233,7 +235,11 @@ public class Slack {
 			
 			@Override
 			public void run() {
-				checkConnection();
+				try {
+					checkConnection();
+				} catch(Exception e) {
+					log.warn( "Exception in checking connectivity...", e);
+				}
 			}
 		};
 		timer.schedule( connectionChecker, CONNECTION_CHECK_PERIOD, CONNECTION_CHECK_PERIOD );
@@ -291,6 +297,7 @@ public class Slack {
 								status();
 								break;
 							case CMD_CLEAR:
+							case CMD_CLEAN:
 								clearHistory();
 								break;
 						}
@@ -583,8 +590,7 @@ public class Slack {
 				initializeRTMClient();
 				postMessageToChannel( "Respawn after connection lost." );
 			} catch(Exception e) {
-				log.warn( "Exception in reinitializing..." );
-				e.printStackTrace();
+				log.warn( "Exception in reinitializing...", e);
 			}
 		}
 	}
