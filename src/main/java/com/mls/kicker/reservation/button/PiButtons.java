@@ -5,6 +5,8 @@ import java.util.Date;
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -24,9 +26,11 @@ import com.pi4j.io.gpio.event.GpioPinListenerDigital;
 @Component
 public class PiButtons {
 	
-	private static final int BUTTON_HIT_FREEZE_PERIOD = 500;
+	private static Logger log = LoggerFactory.getLogger( Referee.class );
 	
-	private static final int RESERVATION_FREEZE_PERIOD = 5000;
+	private static final long BUTTON_HIT_FREEZE_PERIOD = 500;
+	
+	private static final long RESERVATION_FREEZE_PERIOD = 5000;
 
 	@Autowired
 	private Referee referee;
@@ -72,10 +76,17 @@ public class PiButtons {
 				switch(currentStatus) {
 					case FREE:
 					case OCCUPIED:
+						PiButtons.this.lastReservationTime = new Date(0);
 					default:
 						break;
 					case RESERVED:
-						PiButtons.this.lastReservationTime = new Date();
+						/*
+						 * Update only on changing state.
+						 */
+						if( TableStatus.FREE.equals(event.getPreviousStatus())) {
+							PiButtons.this.lastReservationTime = new Date();
+							System.out.println( "Last reservation time updated to " + PiButtons.this.lastReservationTime );
+						}
 						break;
 				}
 			}
@@ -101,7 +112,7 @@ public class PiButtons {
 					final long nowMilis = now.getTime();
 					final boolean buttonHitCondition = Math.abs( nowMilis - PiButtons.this.lastButtonHitTime.getTime() ) > BUTTON_HIT_FREEZE_PERIOD;
 					final boolean reservationCondition = Math.abs( nowMilis - PiButtons.this.lastReservationTime.getTime() ) > RESERVATION_FREEZE_PERIOD;
-					if ( buttonHitCondition && reservationCondition) {
+					if ( buttonHitCondition && reservationCondition ) {
 						PiButtons.this.lastButtonHitTime = now;
 						PiButtons.this.slack.play( "-1" );
 					}
@@ -126,7 +137,10 @@ public class PiButtons {
 				System.out.println( " --> GPIO PIN STATE CHANGE: " + event.getPin() + " = " + event.getState() );
 				if ( event.getState().isHigh() ) {
 					final Date now = new Date();
-					if ( Math.abs( now.getTime() - PiButtons.this.lastButtonHitTime.getTime() ) > BUTTON_HIT_FREEZE_PERIOD ) {
+					final long nowMilis = now.getTime();
+					final boolean buttonHitCondition = Math.abs( nowMilis - PiButtons.this.lastButtonHitTime.getTime() ) > BUTTON_HIT_FREEZE_PERIOD;
+					final boolean reservationCondition = Math.abs( nowMilis - PiButtons.this.lastReservationTime.getTime() ) > RESERVATION_FREEZE_PERIOD;
+					if ( buttonHitCondition && reservationCondition ) {
 						PiButtons.this.lastButtonHitTime = now;
 						PiButtons.this.slack.release( "-1" );
 					}
