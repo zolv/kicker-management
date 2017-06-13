@@ -9,6 +9,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import com.mls.kicker.reservation.engine.Referee;
+import com.mls.kicker.reservation.engine.StateChangeHandler;
+import com.mls.kicker.reservation.engine.StateChangedEvent;
+import com.mls.kicker.reservation.engine.Referee.TableStatus;
 import com.mls.kicker.reservation.slack.Slack;
 import com.pi4j.io.gpio.GpioController;
 import com.pi4j.io.gpio.GpioFactory;
@@ -21,7 +24,9 @@ import com.pi4j.io.gpio.event.GpioPinListenerDigital;
 @Component
 public class PiButtons {
 	
-	private static final int FREEZE_PERIOD = 500;
+	private static final int BUTTON_HIT_FREEZE_PERIOD = 500;
+	
+	private static final int RESERVATION_FREEZE_PERIOD = 5000;
 
 	@Autowired
 	private Referee referee;
@@ -36,6 +41,10 @@ public class PiButtons {
 	private GpioPinDigitalInput greenButtonPin;
 	
 	private Date lastButtonHitTime = new Date();
+
+	private Date lastReservationTime = new Date();
+
+	private StateChangeHandler stateChangeHandler;
 	
 	public PiButtons() {
 	}
@@ -49,10 +58,31 @@ public class PiButtons {
 	private void initializeGpio() {
 		this.gpio = GpioFactory.getInstance();
 		
+		initializeReservationHandler();
 		initializeRedButton();
 		initializeGreenButton();
 	}
 	
+	private void initializeReservationHandler() {
+		this.stateChangeHandler = new StateChangeHandler() {
+
+			@Override
+			public void stateChanged(StateChangedEvent event) {
+				TableStatus currentStatus = event.getCurrentStatus();
+				switch(currentStatus) {
+					case FREE:
+					case OCCUPIED:
+					default:
+						break;
+					case RESERVED:
+						PiButtons.this.lastReservationTime = new Date();
+						break;
+				}
+			}
+		};
+		this.referee.addStateChangedHandler(this.stateChangeHandler);		
+	}
+
 	private void initializeRedButton() {
 		this.redButtonPin = this.gpio.provisionDigitalInputPin( RaspiPin.GPIO_05, PinPullResistance.PULL_DOWN );
 		
@@ -68,8 +98,11 @@ public class PiButtons {
 				System.out.println( " --> GPIO PIN STATE CHANGE: " + event.getPin() + " = " + event.getState() );
 				if ( event.getState().isHigh() ) {
 					final Date now = new Date();
-					if ( Math.abs( now.getTime() - lastButtonHitTime.getTime() ) > FREEZE_PERIOD ) {
-						lastButtonHitTime = now;
+					final long nowMilis = now.getTime();
+					final boolean buttonHitCondition = Math.abs( nowMilis - PiButtons.this.lastButtonHitTime.getTime() ) > BUTTON_HIT_FREEZE_PERIOD;
+					final boolean reservationCondition = Math.abs( nowMilis - PiButtons.this.lastReservationTime.getTime() ) > RESERVATION_FREEZE_PERIOD;
+					if ( buttonHitCondition && reservationCondition) {
+						PiButtons.this.lastButtonHitTime = now;
 						PiButtons.this.slack.play( "-1" );
 					}
 				}
@@ -93,8 +126,8 @@ public class PiButtons {
 				System.out.println( " --> GPIO PIN STATE CHANGE: " + event.getPin() + " = " + event.getState() );
 				if ( event.getState().isHigh() ) {
 					final Date now = new Date();
-					if ( Math.abs( now.getTime() - lastButtonHitTime.getTime() ) > FREEZE_PERIOD ) {
-						lastButtonHitTime = now;
+					if ( Math.abs( now.getTime() - PiButtons.this.lastButtonHitTime.getTime() ) > BUTTON_HIT_FREEZE_PERIOD ) {
+						PiButtons.this.lastButtonHitTime = now;
 						PiButtons.this.slack.release( "-1" );
 					}
 				}
