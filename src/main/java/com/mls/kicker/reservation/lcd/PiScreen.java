@@ -81,17 +81,17 @@ public class PiScreen {
 	
 	public void display1stLine( String line, boolean initialize ) {
 		final String lineFixed = fixLineValue( line );
-		if ( !previousLine1.equals( lineFixed ) ) {
-			displayLine( 0, lineFixed, false );
-			previousLine1 = lineFixed;
+		if ( !this.previousLine1.equals( lineFixed ) ) {
+			displayLine( 0, lineFixed, initialize );
+			this.previousLine1 = lineFixed;
 		}
 	}
 	
 	public void display2ndLine( String line ) {
 		final String lineFixed = fixLineValue( line );
-		if ( !previousLine2.equals( lineFixed ) ) {
+		if ( !this.previousLine2.equals( lineFixed ) ) {
 			displayLine( 1, lineFixed, false );
-			previousLine2 = lineFixed;
+			this.previousLine2 = lineFixed;
 		}
 	}
 	
@@ -145,7 +145,7 @@ public class PiScreen {
 	}
 	
 	private String getUserValue( StateChangedEvent event ) {
-		String userName = slack.getUserNameByUserId( event.getUserId() );
+		String userName = this.slack.getUserNameByUserId( event.getUserId() );
 		String userValue = "???".equals( userName ) ? "You" : userName;
 		return userValue;
 	}
