@@ -128,7 +128,7 @@ public class PiScreen {
 	}
 	
 	public void updateStatus( StateChangedEvent event ) {
-		TableStatus currentStatus = event.getCurrentStatus();
+		final TableStatus currentStatus = event.getCurrentStatus();
 		switch ( currentStatus ) {
 			case FREE:
 				display2Lines( "Free to play", "Press red button", false );
@@ -153,9 +153,10 @@ public class PiScreen {
 	private String formatTime( Long timeLeft ) {
 		final String result;
 		if ( timeLeft != null ) {
-			long minutes = Long.valueOf( timeLeft / Referee.ONE_MINUTE );
-			long seconds = Long.valueOf( timeLeft % Referee.ONE_MINUTE ) / Referee.ONE_SECOND;
-			result = ( minutes < 10 ? "0" + minutes : minutes ) + ":" + ( seconds < 10 ? "0" + seconds : seconds );
+			long timeLeftMilis = timeLeft.longValue();
+			long minutes = timeLeftMilis / Referee.ONE_MINUTE;
+			long seconds = ( timeLeft.longValue() % Referee.ONE_MINUTE ) / Referee.ONE_SECOND;
+			result = ( minutes < 10 ? "0" + minutes : Long.valueOf(minutes) ) + ":" + ( seconds < 10 ? "0" + seconds : Long.valueOf(seconds) );
 		} else {
 			result = "??:??";
 		}

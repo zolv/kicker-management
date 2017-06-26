@@ -46,7 +46,7 @@ public class PiButtons {
 	
 	private Date lastButtonHitTime = new Date();
 
-	private Date lastReservationTime = new Date();
+	private Date lastReservationTime = new Date(0);
 
 	private StateChangeHandler stateChangeHandler;
 	
@@ -72,12 +72,12 @@ public class PiButtons {
 
 			@Override
 			public void stateChanged(StateChangedEvent event) {
-				TableStatus currentStatus = event.getCurrentStatus();
+				final TableStatus currentStatus = event.getCurrentStatus();
 				switch(currentStatus) {
 					case FREE:
 					case OCCUPIED:
-						PiButtons.this.lastReservationTime = new Date(0);
 					default:
+						PiButtons.this.lastReservationTime = new Date(0);
 						break;
 					case RESERVED:
 						/*
@@ -106,7 +106,7 @@ public class PiButtons {
 			@Override
 			public void handleGpioPinDigitalStateChangeEvent( GpioPinDigitalStateChangeEvent event ) {
 				// display pin state on console
-				System.out.println( " --> GPIO PIN STATE CHANGE: " + event.getPin() + " = " + event.getState() );
+				log.debug( " --> GPIO PIN STATE CHANGE: " + event.getPin() + " = " + event.getState() );
 				if ( event.getState().isHigh() ) {
 					final Date now = new Date();
 					final long nowMilis = now.getTime();
@@ -134,15 +134,21 @@ public class PiButtons {
 			@Override
 			public void handleGpioPinDigitalStateChangeEvent( GpioPinDigitalStateChangeEvent event ) {
 				// display pin state on console
-				System.out.println( " --> GPIO PIN STATE CHANGE: " + event.getPin() + " = " + event.getState() );
+				log.debug( " --> GPIO PIN STATE CHANGE: " + event.getPin() + " = " + event.getState() );
 				if ( event.getState().isHigh() ) {
 					final Date now = new Date();
 					final long nowMilis = now.getTime();
 					final boolean buttonHitCondition = Math.abs( nowMilis - PiButtons.this.lastButtonHitTime.getTime() ) > BUTTON_HIT_FREEZE_PERIOD;
-					final boolean reservationCondition = Math.abs( nowMilis - PiButtons.this.lastReservationTime.getTime() ) > RESERVATION_FREEZE_PERIOD;
-					if ( buttonHitCondition && reservationCondition ) {
-						PiButtons.this.lastButtonHitTime = now;
-						PiButtons.this.slack.release( "-1" );
+					if ( buttonHitCondition ) {
+						final boolean reservationCondition = Math.abs( nowMilis - PiButtons.this.lastReservationTime.getTime() ) > RESERVATION_FREEZE_PERIOD;
+						if ( reservationCondition ) {
+							PiButtons.this.lastButtonHitTime = now;
+							PiButtons.this.slack.release( "-1" );
+						} else {
+							log.trace( "Buttos are freezed due to reservation." );
+						}
+					} else {
+						log.trace( "Buttos are freezed due to last button hit." );
 					}
 				}
 			}

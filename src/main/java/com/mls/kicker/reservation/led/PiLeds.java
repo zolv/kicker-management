@@ -78,7 +78,7 @@ public class PiLeds {
 	}
 
 	public void updateStatus() {
-		this.updateStatus(referee.status());
+		this.updateStatus(this.referee.status());
 	}
 
 	public void updateStatus(TableStatus currentStatus) {
