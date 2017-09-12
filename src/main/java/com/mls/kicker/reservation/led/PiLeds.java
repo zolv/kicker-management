@@ -9,7 +9,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import com.mls.kicker.reservation.engine.Referee;
-import com.mls.kicker.reservation.engine.Referee.TableStatus;
 import com.mls.kicker.reservation.engine.StateChangeHandler;
 import com.mls.kicker.reservation.engine.StateChangedEvent;
 import com.pi4j.io.gpio.GpioController;
@@ -51,8 +50,7 @@ public class PiLeds {
 
 			@Override
 			public void stateChanged(StateChangedEvent event) {
-				TableStatus currentStatus = event.getCurrentStatus();
-				updateStatus(currentStatus);
+				updateStatus(event);
 			}
 		};
 		this.referee.addStateChangedHandler(this.stateChangeHandler);
@@ -81,9 +79,9 @@ public class PiLeds {
 		this.updateStatus(this.referee.status());
 	}
 
-	public void updateStatus(TableStatus currentStatus) {
+	public void updateStatus(StateChangedEvent stateChangedEvent) {
 		if(isGpioAlive()) {
-			switch(currentStatus){
+			switch(stateChangedEvent.getCurrentStatus()){
 				case FREE:
 					lightGreen();
 					break;
