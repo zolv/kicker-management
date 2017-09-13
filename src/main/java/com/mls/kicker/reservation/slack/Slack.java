@@ -31,6 +31,7 @@ import com.mls.kicker.reservation.engine.StateChangedEvent;
 import com.mls.kicker.reservation.engine.TimeoutHandler;
 import com.mls.kicker.reservation.lcd.PiScreen;
 import com.mls.kicker.reservation.led.PiLeds;
+import com.mls.kicker.reservation.util.TimeFormatUtil;
 
 import allbegray.slack.SlackClientFactory;
 import allbegray.slack.bot.SlackbotClient;
@@ -201,7 +202,7 @@ public class Slack {
 			
 			@Override
 			public void timedOut() {
-				postMessageToChannel( "Reservation timed out.\n" + createStatusString( TableStatus.FREE ) );
+				postMessageToChannel( "Reservation timed out.\n" + createStatusString(new StateChangedEvent( TableStatus.FREE, TableStatus.FREE, "" ) ) );
 			}
 		};
 		this.referee.addReservationTimeoutHandler( this.reservationTimeoutHandler );
@@ -210,7 +211,7 @@ public class Slack {
 			
 			@Override
 			public void timedOut() {
-				postMessageToChannel( "Playtime timed out.\n" + createStatusString( TableStatus.FREE ) );
+				postMessageToChannel( "Playtime timed out.\n" + createStatusString(new StateChangedEvent( TableStatus.FREE, TableStatus.FREE, "" ) ) );
 			}
 		};
 		this.referee.addPlayTimeoutHandler( this.playTimeoutHandler );
@@ -398,18 +399,18 @@ public class Slack {
 		final TableStatus tableState = reservationData.getCurrentStatus();
 		switch ( tableState ) {
 			case FREE:
-				postMessageToChannel( createStatusString( tableState ) );
+				postMessageToChannel( createStatusString( reservationData ) );
 				break;
 			case OCCUPIED:
 			default:
-				postMessageToChannel( "Reservation rejected!\n" + createStatusString( TableStatus.OCCUPIED ) );
+				postMessageToChannel( "Reservation rejected!\n" + createStatusString( reservationData ) );
 				break;
 			case RESERVED:
 				if ( user.getId().equals( reservationData.getUserId() ) ) {
-					postMessageToChannel( createStatusString( TableStatus.RESERVED ) + "  by " + getUserFullName( user ) );
+					postMessageToChannel( createStatusString( reservationData ) + "  by " + getUserFullName( user ) );
 				} else {
 					postMessageToChannel(
-						"Reservation rejected!\n" + createStatusString( TableStatus.RESERVED ) + "  by " + getUserFullNameByUserId( reservationData.getUserId() ) );
+						"Reservation rejected!\n" + createStatusString( reservationData ) + "  by " + getUserFullNameByUserId( reservationData.getUserId() ) );
 				}
 				break;
 		}
@@ -423,7 +424,7 @@ public class Slack {
 			case OCCUPIED:
 			case RESERVED:
 			default:
-				postMessageToChannel( createStatusString( tableState ) );
+				postMessageToChannel( createStatusString( reservationData ) );
 				break;
 		}
 	}
@@ -445,7 +446,7 @@ public class Slack {
 		switch ( prevState ) {
 			case FREE:
 			default:
-				postMessageToChannel( "Kicker match has just started.\n" + createStatusString( TableStatus.OCCUPIED ) );
+				postMessageToChannel( "Kicker match has just started.\n" + createStatusString( reservationData ) );
 				break;
 			case RESERVED:
 				final TableStatus currState = reservationData.getCurrentStatus();
@@ -454,11 +455,14 @@ public class Slack {
 					default:
 						break;
 					case RESERVED:
-						postMessageToChannel( createStatusString( TableStatus.FREE ) + " by " + getUserFullNameByUserId( reservationData.getUserId() ) );
+						/*
+						 * Not used.
+						 */
+						postMessageToChannel( createStatusString(new StateChangedEvent( TableStatus.FREE, TableStatus.FREE, reservationData.getUserId() ) ) + " by " + getUserFullNameByUserId( reservationData.getUserId() ) );
 						break;
 					case OCCUPIED:
 						postMessageToChannel(
-							"Kicker match has just started.\n" + createStatusString( TableStatus.OCCUPIED ) + " by "
+							"Kicker match has just started.\n" + createStatusString(reservationData) + " by "
 								+ getUserFullNameByUserId( reservationData.getUserId() ) );
 						break;
 				}
@@ -494,7 +498,7 @@ public class Slack {
 				// Reservation needs to be canceled by command and not by a button
 				break;
 			case OCCUPIED:
-				postMessageToChannel( "Kicker match has finished.\n" + createStatusString( TableStatus.FREE ) );
+				postMessageToChannel( "Kicker match has finished.\n" + createStatusString(new StateChangedEvent( TableStatus.FREE, TableStatus.FREE, userId ) ) );
 				break;
 		}
 	}
@@ -503,18 +507,18 @@ public class Slack {
 		postMessageToChannel( createStatusString( this.referee.status() ) );
 	}
 	
-	private String createStatusString( TableStatus status ) {
+	private String createStatusString( StateChangedEvent stateChangedEvent ) {
 		final StringBuilder sb = new StringBuilder( 32 );
 		sb.append( "Kicker status: " );
-		switch ( status ) {
+		switch ( stateChangedEvent.getCurrentStatus() ) {
 			case FREE:
 				sb.append( ":white_check_mark: FREE" );
 				break;
 			case OCCUPIED:
-				sb.append( ":no_entry: OCCUPIED" );
+				sb.append( ":no_entry: OCCUPIED for " + TimeFormatUtil.formatTime(stateChangedEvent.getTimePassed()) + ", left " + TimeFormatUtil.formatTime(stateChangedEvent.getTimeLeft()) );
 				break;
 			case RESERVED:
-				sb.append( ":warning: RESERVED" );
+				sb.append( ":warning: RESERVED" + TimeFormatUtil.formatTime(stateChangedEvent.getTimePassed()) + ", left " + TimeFormatUtil.formatTime(stateChangedEvent.getTimeLeft()) );
 				break;
 			default:
 				sb.append( ":interrobang: UNKNOWN" );
@@ -522,7 +526,7 @@ public class Slack {
 		}
 		return sb.toString();
 	}
-	
+		
 	private String getUserFullNameByUserId( String userId ) {
 		final String userName;
 		if ( ( userId != null ) && this.users.containsKey( userId ) ) {

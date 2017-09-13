@@ -34,6 +34,7 @@ public class Referee {
 		
 		public ReservationTask() {
 			super();
+			Referee.this.reservationTimePassed = 0;
 			Referee.this.reservationTimeLeft = RESERVATION_TIME;
 		}
 		
@@ -50,8 +51,13 @@ public class Referee {
 	
 	private class PlayingTask extends TimerTask {
 		
-		public PlayingTask( long playingTime ) {
+		public PlayingTask( long playingTime , boolean extend) {
 			super();
+			if(extend) {
+				Referee.this.playingTimePassed += playingTime;
+			} else {
+				Referee.this.playingTimePassed = 0;
+			}
 			Referee.this.playingTimeLeft = playingTime;
 		}
 		
@@ -63,10 +69,6 @@ public class Referee {
 				e.printStackTrace();
 				this.cancel();
 			}
-		}
-		
-		public long getPlayingTimeLeft() {
-			return Referee.this.playingTimeLeft;
 		}
 		
 	}
@@ -83,9 +85,13 @@ public class Referee {
 	
 	private volatile String userId;
 	
+	private volatile long playingTimePassed;
+	
 	private volatile long playingTimeLeft;
 	
-	private long reservationTimeLeft = RESERVATION_TIME;
+	private volatile long reservationTimePassed;
+	
+	private volatile long reservationTimeLeft = RESERVATION_TIME;
 	
 	private final List< TimeoutHandler > reservationTimeoutHandlers = new ArrayList<>( 3 );
 	
@@ -109,14 +115,14 @@ public class Referee {
 				this.userId = byUser;
 				this.reservationTask = new ReservationTask();
 				this.timer.schedule( this.reservationTask, ONE_SECOND, ONE_SECOND );
-				result = new StateChangedEvent( TableStatus.FREE, TableStatus.RESERVED, byUser, RESERVATION_TIME );
+				result = new StateChangedEvent( TableStatus.FREE, TableStatus.RESERVED, byUser, 0L, RESERVATION_TIME );
 				notifyStateListeners( result );
 				break;
 			case OCCUPIED:
-				result = new StateChangedEvent( this.tableStatus, this.tableStatus, this.userId, this.playingTimeLeft );
+				result = new StateChangedEvent( this.tableStatus, this.tableStatus, this.userId, this.playingTimePassed, this.playingTimeLeft );
 				break;
 			case RESERVED:
-				result = new StateChangedEvent( this.tableStatus, this.tableStatus, this.userId, this.reservationTimeLeft );
+				result = new StateChangedEvent( this.tableStatus, this.tableStatus, this.userId, this.reservationTimePassed, this.reservationTimeLeft );
 				break;
 			default:
 				result = new StateChangedEvent( this.tableStatus, this.tableStatus, this.userId );
@@ -191,31 +197,34 @@ public class Referee {
 				cancelTasks();
 				this.tableStatus = TableStatus.OCCUPIED;
 				this.userId = requestUserId;
-				this.playingTask = new PlayingTask( MAX_PLAYING_TIME );
+				this.playingTask = new PlayingTask( MAX_PLAYING_TIME, false );
 				this.timer.schedule( this.playingTask, ONE_SECOND, ONE_SECOND );
-				result = new StateChangedEvent( TableStatus.FREE, TableStatus.OCCUPIED, requestUserId, MAX_PLAYING_TIME );
+				result = new StateChangedEvent( TableStatus.FREE, TableStatus.OCCUPIED, requestUserId, 0L, MAX_PLAYING_TIME );
 				break;
 			case RESERVED:
 				if ( ( requestUserId == null ) || requestUserId.equals( "-1" ) || requestUserId.equals( this.userId ) ) {
 					cancelTasks();
 					this.tableStatus = TableStatus.OCCUPIED;
 					this.userId = ( requestUserId == null ) || ( requestUserId.equals( "-1" ) ) ? this.userId : requestUserId;
-					this.playingTask = new PlayingTask( MAX_PLAYING_TIME );
+					this.playingTask = new PlayingTask( MAX_PLAYING_TIME, false );
 					this.timer.schedule( this.playingTask, ONE_SECOND, ONE_SECOND );
-					result = new StateChangedEvent( TableStatus.RESERVED, TableStatus.OCCUPIED, this.userId, MAX_PLAYING_TIME );
+					result = new StateChangedEvent( TableStatus.RESERVED, TableStatus.OCCUPIED, this.userId, 0L, MAX_PLAYING_TIME );
 				} else {
-					result = new StateChangedEvent( this.tableStatus, TableStatus.RESERVED, this.userId, this.reservationTimeLeft );
+					/*
+					 * Not used.
+					 */
+					result = new StateChangedEvent( this.tableStatus, TableStatus.RESERVED, this.userId, this.reservationTimePassed, this.reservationTimeLeft );
 				}
 				break;
 			case OCCUPIED:
 				if ( this.playingTimeLeft < PLAYING_EXTENTION_TIME ) {
 					cancelTasks();
-//					this.userId = requestUserId;
-					this.playingTask = new PlayingTask( PLAYING_EXTENTION_TIME );
+					// this.userId = requestUserId;
+					this.playingTask = new PlayingTask( PLAYING_EXTENTION_TIME, true );
 					this.timer.schedule( this.playingTask, ONE_SECOND, ONE_SECOND );
-					result = new StateChangedEvent( TableStatus.OCCUPIED, TableStatus.OCCUPIED, userId, PLAYING_EXTENTION_TIME );
+					result = new StateChangedEvent( TableStatus.OCCUPIED, TableStatus.OCCUPIED, this.userId, this.playingTimePassed, PLAYING_EXTENTION_TIME );
 				} else {
-					result = new StateChangedEvent( TableStatus.OCCUPIED, TableStatus.OCCUPIED, userId, playingTimeLeft );
+					result = new StateChangedEvent( TableStatus.OCCUPIED, TableStatus.OCCUPIED, this.userId, this.playingTimePassed, this.playingTimeLeft );
 				}
 				break;
 		}
@@ -301,6 +310,7 @@ public class Referee {
 	}
 	
 	private synchronized void decreasePlayingTime() {
+		this.playingTimePassed += ONE_SECOND;
 		this.playingTimeLeft -= ONE_SECOND;
 		// log.info( "Playing time finishes in " + ( this.playingTimeLeft
 		// / ONE_SECOND ) + " seconds." );
@@ -308,7 +318,7 @@ public class Referee {
 			cancelPlayingTask();
 			playTimeout();
 		} else {
-			notifyStateListeners( new StateChangedEvent( this.tableStatus, this.tableStatus, this.userId, this.playingTimeLeft ) );
+			notifyStateListeners( new StateChangedEvent( this.tableStatus, this.tableStatus, this.userId, this.playingTimePassed, this.playingTimeLeft ) );
 		}
 	}
 	
@@ -332,6 +342,7 @@ public class Referee {
 	}
 	
 	private void decreaseReservationTime() {
+		this.reservationTimePassed += ONE_SECOND;
 		this.reservationTimeLeft -= ONE_SECOND;
 		// log.info( "Reservation finishes in " + (
 		// Referee.this.reservationTimeLeft / ONE_SECOND ) + " seconds." );
@@ -339,11 +350,27 @@ public class Referee {
 			cancelReservationTask();
 			reservationTimeout();
 		} else {
-			notifyStateListeners( new StateChangedEvent( this.tableStatus, this.tableStatus, this.userId, this.reservationTimeLeft ) );
+			notifyStateListeners( new StateChangedEvent( this.tableStatus, this.tableStatus, this.userId, this.reservationTimePassed, this.reservationTimeLeft ) );
 		}
 	}
 	
-	public synchronized TableStatus status() {
-		return this.tableStatus;
+	public synchronized StateChangedEvent status() {
+		final StateChangedEvent result;
+		switch(this.tableStatus) {
+			case FREE:
+				result = new StateChangedEvent( this.tableStatus, this.tableStatus, this.userId ); 
+				break;
+			case OCCUPIED:
+				result = new StateChangedEvent( this.tableStatus, this.tableStatus, this.userId, this.playingTimePassed, this.playingTimeLeft );
+				break;
+			case RESERVED:
+				result = new StateChangedEvent( this.tableStatus, this.tableStatus, this.userId, this.reservationTimePassed, this.reservationTimeLeft );
+				break;
+			default:
+				result = new StateChangedEvent( this.tableStatus, this.tableStatus, this.userId, Long.valueOf( -1 ),  Long.valueOf( -1 ) );
+				break;
+			
+		}
+		return result;
 	}
 }

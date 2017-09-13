@@ -23,6 +23,7 @@ import com.mls.kicker.reservation.engine.StateChangeHandler;
 import com.mls.kicker.reservation.engine.StateChangedEvent;
 import com.mls.kicker.reservation.engine.Referee.TableStatus;
 import com.mls.kicker.reservation.slack.Slack;
+import com.mls.kicker.reservation.util.TimeFormatUtil;
 
 @Component
 public class PiScreen {
@@ -134,10 +135,10 @@ public class PiScreen {
 				display2Lines( "Free to play", "Press red button", false );
 				break;
 			case OCCUPIED:
-				display2Lines( "Occupied by " + getUserValue( event ), formatTime( event.getTimeLeft() ), false );
+				display2Lines( "Occupied by " + getUserValue( event ), TimeFormatUtil.formatTime( event.getTimeLeft() ), false );
 				break;
 			case RESERVED:
-				display2Lines( "Reserved by " + getUserValue( event ), formatTime( event.getTimeLeft() ), true );
+				display2Lines( "Reserved by " + getUserValue( event ), TimeFormatUtil.formatTime( event.getTimeLeft() ), true );
 				break;
 			default:
 				break;
@@ -148,19 +149,6 @@ public class PiScreen {
 		String userName = this.slack.getUserNameByUserId( event.getUserId() );
 		String userValue = "???".equals( userName ) ? "You" : userName;
 		return userValue;
-	}
-	
-	private String formatTime( Long timeLeft ) {
-		final String result;
-		if ( timeLeft != null ) {
-			long timeLeftMilis = timeLeft.longValue();
-			long minutes = timeLeftMilis / Referee.ONE_MINUTE;
-			long seconds = ( timeLeft.longValue() % Referee.ONE_MINUTE ) / Referee.ONE_SECOND;
-			result = ( minutes < 10 ? "0" + minutes : Long.valueOf(minutes) ) + ":" + ( seconds < 10 ? "0" + seconds : Long.valueOf(seconds) );
-		} else {
-			result = "??:??";
-		}
-		return "Time left: " + result;
 	}
 	
 	@PreDestroy

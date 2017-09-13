@@ -10,34 +10,45 @@ public class StateChangedEvent {
 	
 	private final String userId;
 	
+	private final Long timePassed;
+	
 	private final Long timeLeft;
 	
 	public StateChangedEvent( TableStatus previousStatus, TableStatus currentStatus, String userId ) {
-		this( previousStatus, currentStatus, userId, null );
+		this( previousStatus, currentStatus, userId, null, null );
 	}
 	
-	public StateChangedEvent( TableStatus previousStatus, TableStatus currentStatus, String userId, Long timeLeft ) {
+	public StateChangedEvent( TableStatus previousStatus, TableStatus currentStatus, String userId, long timePassed, long timeLeft ) {
+		this( previousStatus, currentStatus, userId, Long.valueOf( timePassed ), Long.valueOf( timeLeft ) );
+	}
+	
+	public StateChangedEvent( TableStatus previousStatus, TableStatus currentStatus, String userId, Long timePassed, Long timeLeft ) {
 		super();
 		this.previousStatus = previousStatus;
 		this.currentStatus = currentStatus;
 		this.userId = userId;
+		this.timePassed = timePassed;
 		this.timeLeft = timeLeft;
 	}
 	
 	public TableStatus getCurrentStatus() {
-		return currentStatus;
+		return this.currentStatus;
 	}
 	
 	public TableStatus getPreviousStatus() {
-		return previousStatus;
+		return this.previousStatus;
 	}
 	
 	public String getUserId() {
-		return userId;
+		return this.userId;
 	}
 	
 	public Long getTimeLeft() {
-		return timeLeft;
+		return this.timeLeft;
+	}
+	
+	public Long getTimePassed() {
+		return this.timePassed;
 	}
 	
 }
