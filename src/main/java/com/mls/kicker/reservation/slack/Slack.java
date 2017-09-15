@@ -5,12 +5,14 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Random;
 import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -407,10 +409,10 @@ public class Slack {
 				break;
 			case RESERVED:
 				if ( user.getId().equals( reservationData.getUserId() ) ) {
-					postMessageToChannel( createStatusString( reservationData ) + "  by " + getUserFullName( user ) );
+					postMessageToChannel( createStatusString( reservationData ) );
 				} else {
 					postMessageToChannel(
-						"Reservation rejected!\n" + createStatusString( reservationData ) + "  by " + getUserFullNameByUserId( reservationData.getUserId() ) );
+						"Reservation rejected!\n" + createStatusString( reservationData ) );
 				}
 				break;
 		}
@@ -458,12 +460,11 @@ public class Slack {
 						/*
 						 * Not used.
 						 */
-						postMessageToChannel( createStatusString(new StateChangedEvent( TableStatus.FREE, TableStatus.FREE, reservationData.getUserId() ) ) + " by " + getUserFullNameByUserId( reservationData.getUserId() ) );
+						postMessageToChannel( createStatusString(new StateChangedEvent( TableStatus.FREE, TableStatus.FREE, reservationData.getUserId() ) ) );
 						break;
 					case OCCUPIED:
 						postMessageToChannel(
-							"Kicker match has just started.\n" + createStatusString(reservationData) + " by "
-								+ getUserFullNameByUserId( reservationData.getUserId() ) );
+							"Kicker match has just started.\n" + createStatusString(reservationData));
 						break;
 				}
 				break;
@@ -510,21 +511,48 @@ public class Slack {
 	private String createStatusString( StateChangedEvent stateChangedEvent ) {
 		final StringBuilder sb = new StringBuilder( 32 );
 		sb.append( "Kicker status: " );
+		final String byString = createByString(stateChangedEvent.getUserId());
 		switch ( stateChangedEvent.getCurrentStatus() ) {
 			case FREE:
 				sb.append( ":white_check_mark: FREE" );
 				break;
 			case OCCUPIED:
-				sb.append( ":no_entry: OCCUPIED for " + TimeFormatUtil.formatTime(stateChangedEvent.getTimePassed()) + ", left " + TimeFormatUtil.formatTime(stateChangedEvent.getTimeLeft()) );
+				final String detailInfo;
+				final Long timePassed = stateChangedEvent.getTimePassed();
+				final long timePassed2;
+				if(timePassed != null && (timePassed2 = timePassed.longValue()) > 0L) {
+					final String playedOrElapsed = new Random(new Date().getTime()).nextBoolean() ? "played" : "elapsed";
+					detailInfo = byString + " " + playedOrElapsed + " " + TimeFormatUtil.createSimpleTimeString(timePassed2) + ", remaining "
+							+ TimeFormatUtil.createSimpleTimeString(stateChangedEvent.getTimeLeft());
+				} else {
+					detailInfo = byString;
+				}
+				sb.append( ":no_entry: OCCUPIED " + detailInfo );
 				break;
 			case RESERVED:
-				sb.append( ":warning: RESERVED" + TimeFormatUtil.formatTime(stateChangedEvent.getTimePassed()) + ", left " + TimeFormatUtil.formatTime(stateChangedEvent.getTimeLeft()) );
+				final String detailInfo2;
+				final Long timeLeft = stateChangedEvent.getTimeLeft();
+				final long timeLeft2;
+				if(timeLeft != null && (timeLeft2 = timeLeft.longValue()) > 0L) {
+					detailInfo2 = byString + " for next " + TimeFormatUtil.createSimpleTimeString(timeLeft2);
+				} else {
+					detailInfo2 = byString;
+				}
+				sb.append( ":warning: RESERVED " +detailInfo2 );
 				break;
 			default:
 				sb.append( ":interrobang: UNKNOWN" );
 				break;
 		}
 		return sb.toString();
+	}
+	
+	private String createByString(String userId) {
+		if(userId != null && !userId.isEmpty() && !userId.equals("-1")) {
+			return " by " + getUserFullNameByUserId( userId );
+		} else {
+			return "";
+		}
 	}
 		
 	private String getUserFullNameByUserId( String userId ) {

@@ -135,10 +135,10 @@ public class PiScreen {
 				display2Lines( "Free to play", "Press red button", false );
 				break;
 			case OCCUPIED:
-				display2Lines( "Occupied by " + getUserValue( event ), TimeFormatUtil.formatTime( event.getTimeLeft() ), false );
+				display2Lines( "Occupied by " + getUserValue( event ), TimeFormatUtil.createTimeString( event.getTimeLeft() ), false );
 				break;
 			case RESERVED:
-				display2Lines( "Reserved by " + getUserValue( event ), TimeFormatUtil.formatTime( event.getTimeLeft() ), true );
+				display2Lines( "Reserved by " + getUserValue( event ), TimeFormatUtil.createTimeString( event.getTimeLeft() ), true );
 				break;
 			default:
 				break;
