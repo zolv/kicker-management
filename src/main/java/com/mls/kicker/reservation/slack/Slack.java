@@ -332,6 +332,7 @@ public class Slack {
 				log.info( "Hello message received" );
 				rtmClientOpen = true;
 				postMessageToChannel( "Service is :arrow_forward:" );
+				Slack.this.status();
 				piLeds.updateStatus();
 			}
 		} );
