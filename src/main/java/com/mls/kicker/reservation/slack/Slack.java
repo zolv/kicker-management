@@ -53,7 +53,7 @@ import allbegray.slack.webhook.SlackWebhookClient;
 @Component
 public class Slack {
 	
-	private static final int HISTORY_SIZE = 6;
+	private static final int HISTORY_SIZE = 3;
 
 	private static final int HISTORY_ENTRIES_TO_CLEAR = 1000;
 	
@@ -96,9 +96,7 @@ public class Slack {
 		
 	}
 	
-	private String channelName = "kickertest2";
-	
-	private final AtomicLong counter = new AtomicLong();
+	private String channelName = "kicker";
 	
 	private String slackBotToken;
 	
@@ -133,7 +131,7 @@ public class Slack {
 	
 	private String botId;
 	
-	private List< String > postedMessages = Collections.synchronizedList( new ArrayList<>() );
+	private List< String > postedMessages = Collections.synchronizedList( new ArrayList<>(HISTORY_SIZE + 1) );
 	
 	private volatile boolean rtmClientOpen;
 	
@@ -169,10 +167,10 @@ public class Slack {
 				log.info( "Deleting message with ts=" + oldestMessage );
 				boolean isOk = this.webApiClient.deleteMessage( this.channel.getId(), oldestMessage );
 				log.info( "Deleting message with ts=" + oldestMessage + ", result=" + isOk );
-				log.info( "Old messages to remove in the future: " + postedMessages.size() );
+				log.info( "Old messages to remove in the future: " + this.postedMessages.size() );
 			}
 		} catch ( Throwable e ) {
-			
+			log.warn(e.getMessage());
 		}
 	}
 	
@@ -195,10 +193,10 @@ public class Slack {
 		}
 		
 		log.info( "slackBotToken=" + prop.getProperty( "slackBotToken" ) );
-		channelName = prop.getProperty( "channelName" );
-		slackBotToken = prop.getProperty( "slackBotToken" );
-		webhookUrl = prop.getProperty( "webhookUrl" );
-		slackbotUrl = "https://marketlogicsoftware.slack.com/services/hooks/slackbot?token=" + slackBotToken;
+		this.channelName = prop.getProperty( "channelName" );
+		this.slackBotToken = prop.getProperty( "slackBotToken" );
+		this.webhookUrl = prop.getProperty( "webhookUrl" );
+		this.slackbotUrl = "https://marketlogicsoftware.slack.com/services/hooks/slackbot?token=" + this.slackBotToken;
 		
 		this.reservationTimeoutHandler = new TimeoutHandler() {
 			
@@ -218,9 +216,9 @@ public class Slack {
 		};
 		this.referee.addPlayTimeoutHandler( this.playTimeoutHandler );
 		
-		this.slackbotClient = SlackClientFactory.createSlackbotClient( slackbotUrl );
-		this.webhookClient = SlackClientFactory.createWebhookClient( webhookUrl );
-		this.webApiClient = SlackClientFactory.createWebApiClient( slackBotToken );
+		this.slackbotClient = SlackClientFactory.createSlackbotClient( this.slackbotUrl );
+		this.webhookClient = SlackClientFactory.createWebhookClient( this.webhookUrl );
+		this.webApiClient = SlackClientFactory.createWebApiClient( this.slackBotToken );
 		// log.info( webApiClient.getBotInfo().getId() );
 		
 		reloadReservationChannelInfo();
@@ -232,9 +230,9 @@ public class Slack {
 		
 		
 		
-		timer = new Timer( true );
+		this.timer = new Timer( true );
 		
-		connectionChecker = new TimerTask() {
+		this.connectionChecker = new TimerTask() {
 			
 			@Override
 			public void run() {
@@ -245,13 +243,13 @@ public class Slack {
 				}
 			}
 		};
-		timer.schedule( connectionChecker, CONNECTION_CHECK_PERIOD, CONNECTION_CHECK_PERIOD );
+		this.timer.schedule( this.connectionChecker, CONNECTION_CHECK_PERIOD, CONNECTION_CHECK_PERIOD );
 	}
 	
 	private synchronized void initializeRTMClient() {
 		
-		if ( rtmClient != null ) {
-			rtmClient.close();
+		if ( this.rtmClient != null ) {
+			this.rtmClient.close();
 		}
 		JsonNode welcomeMessage = this.webApiClient.startRealTimeMessagingApi();
 		String webSocketUrl = welcomeMessage.findPath( "url" ).asText();
@@ -330,10 +328,10 @@ public class Slack {
 			@Override
 			public void onMessage( JsonNode message ) {
 				log.info( "Hello message received" );
-				rtmClientOpen = true;
+				Slack.this.rtmClientOpen = true;
 				postMessageToChannel( "Service is :arrow_forward:" );
 				Slack.this.status();
-				piLeds.updateStatus();
+				Slack.this.piLeds.updateStatus();
 			}
 		} );
 		this.rtmClient.addFailureListener( new FailureListener() {
@@ -350,7 +348,7 @@ public class Slack {
 			@Override
 			public void onClose() {
 				log.info( "Close received." );
-				rtmClientOpen = false;
+				Slack.this.rtmClientOpen = false;
 				postMessageToChannel( "Service is :black_square_for_stop:" );
 			}
 		} );
@@ -360,7 +358,7 @@ public class Slack {
 	private void reloadReservationChannelInfo() {
 		List< Channel > channelList = this.webApiClient.getChannelList();
 		for ( final Channel channel : channelList ) {
-			if ( channel.getName().equals( channelName ) ) {
+			if ( channel.getName().equals( this.channelName ) ) {
 				this.channel = channel;
 			}
 		}
@@ -375,10 +373,10 @@ public class Slack {
 	}
 	
 	private synchronized void clearHistory() {
-		final History history = this.webApiClient.getChannelHistory( channel.getId(), HISTORY_ENTRIES_TO_CLEAR );
+		final History history = this.webApiClient.getChannelHistory( this.channel.getId(), HISTORY_ENTRIES_TO_CLEAR );
 		log.info( "History entries: " + history.getMessages().size() );
 		for ( final Message message : history.getMessages() ) {
-			if ( message.getUser().equals( botId ) ) {
+			if ( message.getUser().equals( this.botId ) ) {
 				addToMessagesToRemove( message.getTs() );
 				deleteOldMessage();
 			}
@@ -549,11 +547,13 @@ public class Slack {
 	}
 	
 	private String createByString(String userId) {
+		final String result;
 		if(userId != null && !userId.isEmpty() && !userId.equals("-1")) {
-			return " by " + getUserFullNameByUserId( userId );
+			result = " by " + getUserFullNameByUserId( userId );
 		} else {
-			return "";
+			result = "";
 		}
+		return result;
 	}
 		
 	private String getUserFullNameByUserId( String userId ) {
@@ -610,15 +610,15 @@ public class Slack {
 	}
 	
 	public boolean isRtmClientOpen() {
-		return rtmClientOpen;
+		return this.rtmClientOpen;
 	}
 	
 	public synchronized void checkConnection() {
 		//log.info( "Checking connection, rtmClientOpen: " + rtmClientOpen );
-		if ( !rtmClientOpen ) {
+		if ( !this.rtmClientOpen ) {
 			log.info( "RTMClient is not open. Reinitializing..." );
-			piLeds.lightsDown();
-			piScreen.display2Lines( "Connection", "Problem", true );
+			this.piLeds.lightsDown();
+			this.piScreen.display2Lines( "Connection", "Problem", true );
 			try {
 				initializeRTMClient();
 				postMessageToChannel( "Respawn after connection lost." );
