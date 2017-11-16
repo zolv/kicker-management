@@ -513,7 +513,9 @@ public class Slack {
 		final String byString = createByString(stateChangedEvent.getUserId());
 		switch ( stateChangedEvent.getCurrentStatus() ) {
 			case FREE:
-				sb.append( ":white_check_mark: FREE" );
+				final Long freeTimePassed = stateChangedEvent.getTimePassed();
+				final String timePassedString = freeTimePassed != null ? " for " + TimeFormatUtil.createHourTimeString(freeTimePassed) : "";
+				sb.append( ":white_check_mark: FREE" + timePassedString );
 				break;
 			case OCCUPIED:
 				final String detailInfo;

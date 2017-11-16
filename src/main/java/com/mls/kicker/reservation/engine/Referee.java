@@ -22,6 +22,8 @@ public class Referee {
 	
 	public static final long ONE_MINUTE = 60 * ONE_SECOND;
 	
+	public static final long ONE_HOUR = 60 * ONE_MINUTE;
+	
 	public static long RESERVATION_TIME = 180 * ONE_SECOND;// 60
 	
 	public static long MAX_PLAYING_TIME = 1200 * ONE_SECOND;// 900;
@@ -72,7 +74,25 @@ public class Referee {
 		}
 		
 	}
-	
+
+	private class FreeTask extends TimerTask {
+		
+		public FreeTask() {
+			super();
+			Referee.this.freeTimePassed = 0;
+		}
+		
+		@Override
+		public void run() {
+			try {
+				increaseFreeTime();
+			} catch ( Exception e ) {
+				e.printStackTrace();
+				this.cancel();
+			}
+		}
+	}
+
 	public static enum TableStatus {
 		FREE, RESERVED, OCCUPIED
 	}
@@ -93,6 +113,8 @@ public class Referee {
 	
 	private volatile long reservationTimeLeft = RESERVATION_TIME;
 	
+	private volatile long freeTimePassed;
+	
 	private final List< TimeoutHandler > reservationTimeoutHandlers = new ArrayList<>( 3 );
 	
 	private final List< TimeoutHandler > playTimeoutHandlers = new ArrayList<>( 3 );
@@ -102,6 +124,8 @@ public class Referee {
 	private volatile ReservationTask reservationTask;
 	
 	private volatile PlayingTask playingTask;
+	
+	private volatile FreeTask freeTask;
 	
 	public Referee() {
 	}
@@ -145,6 +169,7 @@ public class Referee {
 					result = new StateChangedEvent( this.tableStatus, TableStatus.FREE, this.userId );
 					this.tableStatus = TableStatus.FREE;
 					this.userId = requestUserId;
+					startFreeTask();
 					notifyStateListeners( result );
 				} else {
 					result = new StateChangedEvent( this.tableStatus, this.tableStatus, this.userId );
@@ -160,6 +185,7 @@ public class Referee {
 				cancelTasks();
 				final StateChangedEvent event = new StateChangedEvent( this.tableStatus, TableStatus.FREE, this.userId );
 				this.tableStatus = TableStatus.FREE;
+				this.startFreeTask();
 				notifyReservationTimeoutHandlers();
 				notifyStateListeners( event );
 				break;
@@ -242,6 +268,7 @@ public class Referee {
 				this.cancelTasks();
 				final StateChangedEvent event = new StateChangedEvent( this.tableStatus, TableStatus.FREE, this.userId );
 				this.tableStatus = TableStatus.FREE;
+				this.startFreeTask();
 				notifyPlayTimeoutHandlers();
 				notifyStateListeners( event );
 				break;
@@ -292,6 +319,7 @@ public class Referee {
 				result = new StateChangedEvent( this.tableStatus, TableStatus.FREE, requestUserId );
 				this.userId = requestUserId;
 				this.tableStatus = TableStatus.FREE;
+				startFreeTask();
 				notifyStateListeners( result );
 				break;
 			case FREE:
@@ -303,28 +331,17 @@ public class Referee {
 		}
 		return result;
 	}
-	
+
 	@PostConstruct
 	private void init() {
 		this.timer = new Timer( "ReservationTimer" );
-	}
-	
-	private synchronized void decreasePlayingTime() {
-		this.playingTimePassed += ONE_SECOND;
-		this.playingTimeLeft -= ONE_SECOND;
-		// log.info( "Playing time finishes in " + ( this.playingTimeLeft
-		// / ONE_SECOND ) + " seconds." );
-		if ( this.playingTimeLeft <= 0 ) {
-			cancelPlayingTask();
-			playTimeout();
-		} else {
-			notifyStateListeners( new StateChangedEvent( this.tableStatus, this.tableStatus, this.userId, this.playingTimePassed, this.playingTimeLeft ) );
-		}
+		startFreeTask();
 	}
 	
 	private void cancelTasks() {
 		cancelPlayingTask();
 		cancelReservationTask();
+		cancelFreeTask();
 	}
 	
 	private void cancelPlayingTask() {
@@ -341,11 +358,21 @@ public class Referee {
 		}
 	}
 	
-	private void decreaseReservationTime() {
+	private void cancelFreeTask() {
+		if ( this.freeTask != null ) {
+			this.freeTask.cancel();
+			this.freeTask = null;
+		}
+	}
+	
+	private void startFreeTask() {
+		this.freeTask = new FreeTask();
+		this.timer.schedule( this.freeTask, ONE_SECOND, ONE_SECOND );
+	}
+	
+	private synchronized void decreaseReservationTime() {
 		this.reservationTimePassed += ONE_SECOND;
 		this.reservationTimeLeft -= ONE_SECOND;
-		// log.info( "Reservation finishes in " + (
-		// Referee.this.reservationTimeLeft / ONE_SECOND ) + " seconds." );
 		if ( this.reservationTimeLeft <= 0 ) {
 			cancelReservationTask();
 			reservationTimeout();
@@ -353,12 +380,28 @@ public class Referee {
 			notifyStateListeners( new StateChangedEvent( this.tableStatus, this.tableStatus, this.userId, this.reservationTimePassed, this.reservationTimeLeft ) );
 		}
 	}
+
+	private synchronized void decreasePlayingTime() {
+		this.playingTimePassed += ONE_SECOND;
+		this.playingTimeLeft -= ONE_SECOND;
+		if ( this.playingTimeLeft <= 0 ) {
+			cancelPlayingTask();
+			playTimeout();
+		} else {
+			notifyStateListeners( new StateChangedEvent( this.tableStatus, this.tableStatus, this.userId, this.playingTimePassed, this.playingTimeLeft ) );
+		}
+	}
+
+	private synchronized void increaseFreeTime() {
+		this.freeTimePassed += ONE_SECOND;
+	}
+	
 	
 	public synchronized StateChangedEvent status() {
 		final StateChangedEvent result;
 		switch(this.tableStatus) {
 			case FREE:
-				result = new StateChangedEvent( this.tableStatus, this.tableStatus, this.userId ); 
+				result = new StateChangedEvent( this.tableStatus, this.tableStatus, this.userId, Long.valueOf(this.freeTimePassed), null ); 
 				break;
 			case OCCUPIED:
 				result = new StateChangedEvent( this.tableStatus, this.tableStatus, this.userId, this.playingTimePassed, this.playingTimeLeft );
@@ -369,7 +412,6 @@ public class Referee {
 			default:
 				result = new StateChangedEvent( this.tableStatus, this.tableStatus, this.userId, Long.valueOf( -1 ),  Long.valueOf( -1 ) );
 				break;
-			
 		}
 		return result;
 	}
