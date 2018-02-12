@@ -16,7 +16,6 @@ import java.util.Random;
 import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
-import java.util.concurrent.atomic.AtomicLong;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -54,7 +53,7 @@ import allbegray.slack.webhook.SlackWebhookClient;
 public class Slack {
 	
 	private static final int HISTORY_SIZE = 3;
-
+	
 	private static final int HISTORY_ENTRIES_TO_CLEAR = 1000;
 	
 	private static Logger log = LoggerFactory.getLogger( Slack.class );
@@ -74,16 +73,29 @@ public class Slack {
 	private static final String CMD_RESERVE_SHORT = "res";
 	
 	private static final String CMD_RESERVE_LONG = "reserve";
-
-	private static final String CMD_CLEAR = "clear";
-
-	private static final String CMD_CLEAN = "clean";
 	
-	private static final Set< String > allCommands = new HashSet<>();
+	private static final String CMD_CLEAR = "clear";
+	
+	private static final String CMD_CLEAN = "clean";
 	
 	private static final long CONNECTION_CHECK_PERIOD = 5000;
 	
+	private static final String STATUS_FREE_ICON = ":heavy_check_mark:";
+	
+	private static final String STATUS_OCCUPIED_ICON = ":x:";
+	
+	private static final String STATUS_RESERVED_ICON = ":heavy_exclamation_mark:";
+	
+	private static final String STATUS_UNKNOWN_ICON = ":interrobang:";
+	
+	protected static final String SERVICE_UP = ":arrow_forward:";
+	
+	protected static final String SERVICE_DOWN = ":arrow_down:";
+	
+	private static final Set< String > allCommands;
+	
 	static {
+		allCommands = new HashSet<>( 9 );
 		allCommands.add( CMD_CANCEL_LONG );
 		allCommands.add( CMD_PLAY_LONG );
 		allCommands.add( CMD_RELEASE_LONG );
@@ -93,7 +105,6 @@ public class Slack {
 		allCommands.add( CMD_STATUS_LONG );
 		allCommands.add( CMD_STATUS_SHORT );
 		allCommands.add( CMD_CLEAR );
-		
 	}
 	
 	private String channelName = "kicker";
@@ -117,7 +128,7 @@ public class Slack {
 	
 	@Autowired
 	private PiLeds piLeds;
-
+	
 	@Autowired
 	private PiScreen piScreen;
 	
@@ -131,7 +142,7 @@ public class Slack {
 	
 	private String botId;
 	
-	private List< String > postedMessages = Collections.synchronizedList( new ArrayList<>(HISTORY_SIZE + 1) );
+	private List< String > postedMessages = Collections.synchronizedList( new ArrayList<>( HISTORY_SIZE + 1 ) );
 	
 	private volatile boolean rtmClientOpen;
 	
@@ -170,7 +181,7 @@ public class Slack {
 				log.info( "Old messages to remove in the future: " + this.postedMessages.size() );
 			}
 		} catch ( Throwable e ) {
-			log.warn(e.getMessage());
+			log.warn( e.getMessage() );
 		}
 	}
 	
@@ -202,7 +213,7 @@ public class Slack {
 			
 			@Override
 			public void timedOut() {
-				postMessageToChannel( "Reservation timed out.\n" + createStatusString(new StateChangedEvent( TableStatus.FREE, TableStatus.FREE, "" ) ) );
+				postMessageToChannel( "Reservation timed out.\n" + createStatusString( new StateChangedEvent( TableStatus.FREE, TableStatus.FREE, "" ) ) );
 			}
 		};
 		this.referee.addReservationTimeoutHandler( this.reservationTimeoutHandler );
@@ -211,7 +222,7 @@ public class Slack {
 			
 			@Override
 			public void timedOut() {
-				postMessageToChannel( "Playtime timed out.\n" + createStatusString(new StateChangedEvent( TableStatus.FREE, TableStatus.FREE, "" ) ) );
+				postMessageToChannel( "Playtime timed out.\n" + createStatusString( new StateChangedEvent( TableStatus.FREE, TableStatus.FREE, "" ) ) );
 			}
 		};
 		this.referee.addPlayTimeoutHandler( this.playTimeoutHandler );
@@ -223,12 +234,10 @@ public class Slack {
 		
 		reloadReservationChannelInfo();
 		reloadUsers();
-
+		
 		clearHistory();
 		
 		initializeRTMClient();
-		
-		
 		
 		this.timer = new Timer( true );
 		
@@ -238,8 +247,8 @@ public class Slack {
 			public void run() {
 				try {
 					checkConnection();
-				} catch(Exception e) {
-					log.warn( "Exception in checking connectivity...", e);
+				} catch ( Exception e ) {
+					log.warn( "Exception in checking connectivity...", e );
 				}
 			}
 		};
@@ -287,11 +296,11 @@ public class Slack {
 								cancel( user );
 								break;
 							case CMD_PLAY_LONG:
-//								play( user );
+								// play( user );
 								break;
 							case CMD_RELEASE_LONG:
 							case CMD_RELEASE_SHORT:
-//								release( user );
+								// release( user );
 								break;
 							case CMD_STATUS_LONG:
 							case CMD_STATUS_SHORT:
@@ -329,7 +338,7 @@ public class Slack {
 			public void onMessage( JsonNode message ) {
 				log.info( "Hello message received" );
 				Slack.this.rtmClientOpen = true;
-				postMessageToChannel( "Service is :arrow_forward:" );
+				postMessageToChannel( "Service is " + SERVICE_UP );
 				Slack.this.status();
 				Slack.this.piLeds.updateStatus();
 			}
@@ -349,7 +358,7 @@ public class Slack {
 			public void onClose() {
 				log.info( "Close received." );
 				Slack.this.rtmClientOpen = false;
-				postMessageToChannel( "Service is :black_square_for_stop:" );
+				postMessageToChannel( "Service is " + SERVICE_DOWN );
 			}
 		} );
 		this.rtmClient.connect();
@@ -410,8 +419,7 @@ public class Slack {
 				if ( user.getId().equals( reservationData.getUserId() ) ) {
 					postMessageToChannel( createStatusString( reservationData ) );
 				} else {
-					postMessageToChannel(
-						"Reservation rejected!\n" + createStatusString( reservationData ) );
+					postMessageToChannel( "Reservation rejected!\n" + createStatusString( reservationData ) );
 				}
 				break;
 		}
@@ -459,11 +467,10 @@ public class Slack {
 						/*
 						 * Not used.
 						 */
-						postMessageToChannel( createStatusString(new StateChangedEvent( TableStatus.FREE, TableStatus.FREE, reservationData.getUserId() ) ) );
+						postMessageToChannel( createStatusString( new StateChangedEvent( TableStatus.FREE, TableStatus.FREE, reservationData.getUserId() ) ) );
 						break;
 					case OCCUPIED:
-						postMessageToChannel(
-							"Kicker match has just started.\n" + createStatusString(reservationData));
+						postMessageToChannel( "Kicker match has just started.\n" + createStatusString( reservationData ) );
 						break;
 				}
 				break;
@@ -498,7 +505,7 @@ public class Slack {
 				// Reservation needs to be canceled by command and not by a button
 				break;
 			case OCCUPIED:
-				postMessageToChannel( "Kicker match has finished.\n" + createStatusString(new StateChangedEvent( TableStatus.FREE, TableStatus.FREE, userId ) ) );
+				postMessageToChannel( "Kicker match has finished.\n" + createStatusString( new StateChangedEvent( TableStatus.FREE, TableStatus.FREE, userId ) ) );
 				break;
 		}
 	}
@@ -510,54 +517,53 @@ public class Slack {
 	private String createStatusString( StateChangedEvent stateChangedEvent ) {
 		final StringBuilder sb = new StringBuilder( 32 );
 		sb.append( "Kicker status: " );
-		final String byString = createByString(stateChangedEvent.getUserId());
+		final String byString = createByString( stateChangedEvent.getUserId() );
 		switch ( stateChangedEvent.getCurrentStatus() ) {
 			case FREE:
 				final Long freeTimePassed = stateChangedEvent.getTimePassed();
-				final String timePassedString = freeTimePassed != null ? " for " + TimeFormatUtil.createHourTimeString(freeTimePassed) : "";
-				sb.append( ":white_check_mark: FREE" + timePassedString );
+				final String timePassedString = freeTimePassed != null ? " for " + TimeFormatUtil.createHourTimeString( freeTimePassed ) : "";
+				sb.append( STATUS_FREE_ICON + " FREE" + timePassedString );
 				break;
 			case OCCUPIED:
 				final String detailInfo;
 				final Long timePassed = stateChangedEvent.getTimePassed();
 				final long timePassed2;
-				if(timePassed != null && (timePassed2 = timePassed.longValue()) > 0L) {
-					final String playedOrElapsed = new Random(new Date().getTime()).nextBoolean() ? "played" : "elapsed";
-					detailInfo = byString + " " + playedOrElapsed + " " + TimeFormatUtil.createSimpleTimeString(timePassed2) + ", remaining "
-							+ TimeFormatUtil.createSimpleTimeString(stateChangedEvent.getTimeLeft());
+				if ( timePassed != null && ( timePassed2 = timePassed.longValue() ) > 0L ) {
+					final String playedOrElapsed = new Random( new Date().getTime() ).nextBoolean() ? "played" : "elapsed";
+					detailInfo = byString + " " + playedOrElapsed + " " + TimeFormatUtil.createSimpleTimeString( timePassed2 ) + ", remaining " + TimeFormatUtil.createSimpleTimeString( stateChangedEvent.getTimeLeft() );
 				} else {
 					detailInfo = byString;
 				}
-				sb.append( ":no_entry: OCCUPIED " + detailInfo );
+				sb.append( STATUS_OCCUPIED_ICON + " OCCUPIED " + detailInfo );
 				break;
 			case RESERVED:
 				final String detailInfo2;
 				final Long timeLeft = stateChangedEvent.getTimeLeft();
 				final long timeLeft2;
-				if(timeLeft != null && (timeLeft2 = timeLeft.longValue()) > 0L) {
-					detailInfo2 = byString + " for next " + TimeFormatUtil.createSimpleTimeString(timeLeft2);
+				if ( timeLeft != null && ( timeLeft2 = timeLeft.longValue() ) > 0L ) {
+					detailInfo2 = byString + " for next " + TimeFormatUtil.createSimpleTimeString( timeLeft2 );
 				} else {
 					detailInfo2 = byString;
 				}
-				sb.append( ":warning: RESERVED " +detailInfo2 );
+				sb.append( STATUS_RESERVED_ICON + " RESERVED " + detailInfo2 );
 				break;
 			default:
-				sb.append( ":interrobang: UNKNOWN" );
+				sb.append( STATUS_UNKNOWN_ICON + " UNKNOWN" );
 				break;
 		}
 		return sb.toString();
 	}
 	
-	private String createByString(String userId) {
+	private String createByString( String userId ) {
 		final String result;
-		if(userId != null && !userId.isEmpty() && !userId.equals("-1")) {
+		if ( userId != null && !userId.isEmpty() && !userId.equals( "-1" ) ) {
 			result = " by " + getUserFullNameByUserId( userId );
 		} else {
 			result = "";
 		}
 		return result;
 	}
-		
+	
 	private String getUserFullNameByUserId( String userId ) {
 		final String userName;
 		if ( ( userId != null ) && this.users.containsKey( userId ) ) {
@@ -616,7 +622,7 @@ public class Slack {
 	}
 	
 	public synchronized void checkConnection() {
-		//log.info( "Checking connection, rtmClientOpen: " + rtmClientOpen );
+		// log.info( "Checking connection, rtmClientOpen: " + rtmClientOpen );
 		if ( !this.rtmClientOpen ) {
 			log.info( "RTMClient is not open. Reinitializing..." );
 			this.piLeds.lightsDown();
@@ -624,10 +630,11 @@ public class Slack {
 			try {
 				initializeRTMClient();
 				postMessageToChannel( "Respawn after connection lost." );
-			} catch(Exception e) {
-				log.warn( "Exception in reinitializing...", e);
+			} catch ( Exception e ) {
+				log.warn( "Exception in reinitializing...", e );
 			}
 		}
 	}
 	
 }
+
