@@ -82,7 +82,7 @@ public class Slack {
 	
 	private static final String STATUS_FREE_ICON = ":heavy_check_mark:";
 	
-	private static final String STATUS_OCCUPIED_ICON = ":x:";
+	private static final String STATUS_OCCUPIED_ICON = ":heavy_multiplication_x:";
 	
 	private static final String STATUS_RESERVED_ICON = ":heavy_exclamation_mark:";
 	
@@ -90,7 +90,7 @@ public class Slack {
 	
 	protected static final String SERVICE_UP = ":arrow_forward:";
 	
-	protected static final String SERVICE_DOWN = ":arrow_down:";
+	protected static final String SERVICE_DOWN = ":black_square_for_stop:";
 	
 	private static final Set< String > allCommands;
 	
@@ -151,8 +151,8 @@ public class Slack {
 	private TimerTask connectionChecker;
 	
 	public void postMessageToUser( String userId, String message ) {
-		this.webApiClient.postMessage( this.channel.getName(), message, "mlsbot", true );
-		deleteOldMessages();
+		// this.webApiClient.postMessage( userId, message, "mlsbot", true );
+		// deleteOldMessages();
 	}
 	
 	public void postMessageToChannel( String message ) {
@@ -161,28 +161,22 @@ public class Slack {
 		} catch ( Exception e ) {
 			log.error( e.getMessage(), e );
 		}
-		deleteOldMessages();
 	}
 	
-	private void deleteOldMessages() {
-		deleteOldMessage();
-		deleteOldMessage();
-	}
-	
-	private synchronized void deleteOldMessage() {
+	private synchronized void deleteOldMessages() {
 		try {
-			if ( this.postedMessages.size() > HISTORY_SIZE ) {
+			while ( this.postedMessages.size() > HISTORY_SIZE ) {
 				Iterator< String > messagesIterator = this.postedMessages.iterator();
 				String oldestMessage = messagesIterator.next();
 				messagesIterator.remove();
 				log.info( "Deleting message with ts=" + oldestMessage );
 				boolean isOk = this.webApiClient.deleteMessage( this.channel.getId(), oldestMessage );
-				log.info( "Deleting message with ts=" + oldestMessage + ", result=" + isOk );
-				log.info( "Old messages to remove in the future: " + this.postedMessages.size() );
+				log.info( "Deleting message with ts=" + oldestMessage + ", result=" + isOk + ". Old messages to remove in the future: " + this.postedMessages.size() );
 			}
 		} catch ( Throwable e ) {
 			log.warn( e.getMessage() );
 		}
+		
 	}
 	
 	private synchronized void addToMessagesToRemove( String messageTs ) {
@@ -341,6 +335,7 @@ public class Slack {
 				postMessageToChannel( "Service is " + SERVICE_UP );
 				Slack.this.status();
 				Slack.this.piLeds.updateStatus();
+				Slack.this.clearHistory();
 			}
 		} );
 		this.rtmClient.addFailureListener( new FailureListener() {
@@ -382,12 +377,17 @@ public class Slack {
 	}
 	
 	private synchronized void clearHistory() {
+		this.postedMessages.clear();
+		loadHistory();
+		deleteOldMessages();
+	}
+	
+	private synchronized void loadHistory() {
 		final History history = this.webApiClient.getChannelHistory( this.channel.getId(), HISTORY_ENTRIES_TO_CLEAR );
 		log.info( "History entries: " + history.getMessages().size() );
 		for ( final Message message : history.getMessages() ) {
 			if ( message.getUser().equals( this.botId ) ) {
 				addToMessagesToRemove( message.getTs() );
-				deleteOldMessage();
 			}
 		}
 	}
@@ -637,4 +637,3 @@ public class Slack {
 	}
 	
 }
-
