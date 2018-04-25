@@ -11,9 +11,35 @@ import javax.persistence.Id;
 public class Match {
 	
 	@Id
-	@GeneratedValue( strategy = GenerationType.AUTO )
+	@GeneratedValue ( strategy = GenerationType.AUTO )
 	private Long id;
 	
 	private Date started;
+	
 	private Date finished;
+	
+	public Long getId() {
+		return id;
+	}
+	
+	public void setId( Long id ) {
+		this.id = id;
+	}
+	
+	public Date getStarted() {
+		return started;
+	}
+	
+	public void setStarted( Date started ) {
+		this.started = started;
+	}
+	
+	public Date getFinished() {
+		return finished;
+	}
+	
+	public void setFinished( Date finished ) {
+		this.finished = finished;
+	}
+	
 }
