@@ -13,7 +13,7 @@ import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 
 @Component
-@Scope ( value = "singleton" )
+@Scope( value = "singleton" )
 public class Referee {
 	
 	private static Logger log = LoggerFactory.getLogger( Referee.class );
@@ -23,6 +23,8 @@ public class Referee {
 	public static final long ONE_MINUTE = 60 * ONE_SECOND;
 	
 	public static final long ONE_HOUR = 60 * ONE_MINUTE;
+	
+	public static final long ONE_DAY = 24 * ONE_HOUR;
 	
 	public static long RESERVATION_TIME = 180 * ONE_SECOND;// 60
 	
@@ -53,9 +55,9 @@ public class Referee {
 	
 	private class PlayingTask extends TimerTask {
 		
-		public PlayingTask( long playingTime , boolean extend) {
+		public PlayingTask(long playingTime, boolean extend) {
 			super();
-			if(extend) {
+			if ( extend ) {
 				Referee.this.playingTimePassed += playingTime;
 			} else {
 				Referee.this.playingTimePassed = 0;
@@ -74,7 +76,7 @@ public class Referee {
 		}
 		
 	}
-
+	
 	private class FreeTask extends TimerTask {
 		
 		public FreeTask() {
@@ -92,7 +94,7 @@ public class Referee {
 			}
 		}
 	}
-
+	
 	public static enum TableStatus {
 		FREE, RESERVED, OCCUPIED
 	}
@@ -149,7 +151,7 @@ public class Referee {
 				result = new StateChangedEvent( this.tableStatus, this.tableStatus, this.userId, this.reservationTimePassed, this.reservationTimeLeft );
 				break;
 			default:
-				result = new StateChangedEvent( this.tableStatus, this.tableStatus, this.userId );
+				result = new StateChangedEvent( this.tableStatus, this.tableStatus, this.userId, this.reservationTimePassed, this.reservationTimeLeft );
 				break;
 		}
 		return result;
@@ -161,18 +163,18 @@ public class Referee {
 			case FREE:
 			case OCCUPIED:
 			default:
-				result = new StateChangedEvent( this.tableStatus, this.tableStatus, this.userId );
+				result = new StateChangedEvent( this.tableStatus, this.tableStatus, this.userId, this.playingTimePassed, this.playingTimeLeft );
 				break;
 			case RESERVED:
 				if ( ( this.userId == null ) || this.userId.equals( requestUserId ) ) {
 					cancelTasks();
-					result = new StateChangedEvent( this.tableStatus, TableStatus.FREE, this.userId );
+					result = new StateChangedEvent( this.tableStatus, TableStatus.FREE, this.userId, this.reservationTimePassed, this.reservationTimeLeft );
 					this.tableStatus = TableStatus.FREE;
 					this.userId = requestUserId;
 					startFreeTask();
 					notifyStateListeners( result );
 				} else {
-					result = new StateChangedEvent( this.tableStatus, this.tableStatus, this.userId );
+					result = new StateChangedEvent( this.tableStatus, this.tableStatus, this.userId, this.reservationTimePassed, this.reservationTimeLeft );
 				}
 				break;
 		}
@@ -266,7 +268,7 @@ public class Referee {
 			case OCCUPIED:
 			default:
 				this.cancelTasks();
-				final StateChangedEvent event = new StateChangedEvent( this.tableStatus, TableStatus.FREE, this.userId );
+				final StateChangedEvent event = new StateChangedEvent( this.tableStatus, TableStatus.FREE, this.userId, this.playingTimePassed, this.playingTimeLeft );
 				this.tableStatus = TableStatus.FREE;
 				this.startFreeTask();
 				notifyPlayTimeoutHandlers();
@@ -316,7 +318,7 @@ public class Referee {
 		switch ( this.tableStatus ) {
 			case OCCUPIED:
 				cancelTasks();
-				result = new StateChangedEvent( this.tableStatus, TableStatus.FREE, requestUserId );
+				result = new StateChangedEvent( this.tableStatus, TableStatus.FREE, requestUserId, this.playingTimePassed, this.playingTimeLeft );
 				this.userId = requestUserId;
 				this.tableStatus = TableStatus.FREE;
 				startFreeTask();
@@ -325,13 +327,13 @@ public class Referee {
 			case FREE:
 			default:
 			case RESERVED:
-				result = new StateChangedEvent( this.tableStatus, this.tableStatus, this.userId );
+				result = new StateChangedEvent( this.tableStatus, this.tableStatus, this.userId, this.reservationTimePassed, this.reservationTimeLeft );
 				break;
 			
 		}
 		return result;
 	}
-
+	
 	@PostConstruct
 	private void init() {
 		this.timer = new Timer( "ReservationTimer" );
@@ -380,7 +382,7 @@ public class Referee {
 			notifyStateListeners( new StateChangedEvent( this.tableStatus, this.tableStatus, this.userId, this.reservationTimePassed, this.reservationTimeLeft ) );
 		}
 	}
-
+	
 	private synchronized void decreasePlayingTime() {
 		this.playingTimePassed += ONE_SECOND;
 		this.playingTimeLeft -= ONE_SECOND;
@@ -391,17 +393,16 @@ public class Referee {
 			notifyStateListeners( new StateChangedEvent( this.tableStatus, this.tableStatus, this.userId, this.playingTimePassed, this.playingTimeLeft ) );
 		}
 	}
-
+	
 	private synchronized void increaseFreeTime() {
 		this.freeTimePassed += ONE_SECOND;
 	}
 	
-	
 	public synchronized StateChangedEvent status() {
 		final StateChangedEvent result;
-		switch(this.tableStatus) {
+		switch ( this.tableStatus ) {
 			case FREE:
-				result = new StateChangedEvent( this.tableStatus, this.tableStatus, this.userId, Long.valueOf(this.freeTimePassed), null ); 
+				result = new StateChangedEvent( this.tableStatus, this.tableStatus, this.userId, Long.valueOf( this.freeTimePassed ), null );
 				break;
 			case OCCUPIED:
 				result = new StateChangedEvent( this.tableStatus, this.tableStatus, this.userId, this.playingTimePassed, this.playingTimeLeft );
@@ -410,7 +411,7 @@ public class Referee {
 				result = new StateChangedEvent( this.tableStatus, this.tableStatus, this.userId, this.reservationTimePassed, this.reservationTimeLeft );
 				break;
 			default:
-				result = new StateChangedEvent( this.tableStatus, this.tableStatus, this.userId, Long.valueOf( -1 ),  Long.valueOf( -1 ) );
+				result = new StateChangedEvent( this.tableStatus, this.tableStatus, this.userId, Long.valueOf( -1 ), Long.valueOf( -1 ) );
 				break;
 		}
 		return result;

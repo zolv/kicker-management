@@ -3,8 +3,11 @@ package com.mls.kicker.reservation.slack;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.text.DecimalFormat;
+import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -32,6 +35,8 @@ import com.mls.kicker.reservation.engine.StateChangedEvent;
 import com.mls.kicker.reservation.engine.TimeoutHandler;
 import com.mls.kicker.reservation.lcd.PiScreen;
 import com.mls.kicker.reservation.led.PiLeds;
+import com.mls.kicker.reservation.stats.Statistics;
+import com.mls.kicker.reservation.stats.Stats;
 import com.mls.kicker.reservation.util.TimeFormatUtil;
 
 import allbegray.slack.SlackClientFactory;
@@ -52,11 +57,11 @@ import allbegray.slack.webhook.SlackWebhookClient;
 @Component
 public class Slack {
 	
+	private static Logger log = LoggerFactory.getLogger( Slack.class );
+	
 	private static final int HISTORY_SIZE = 3;
 	
 	private static final int HISTORY_ENTRIES_TO_CLEAR = 1000;
-	
-	private static Logger log = LoggerFactory.getLogger( Slack.class );
 	
 	private static final String CMD_STATUS_SHORT = "st";
 	
@@ -77,6 +82,8 @@ public class Slack {
 	private static final String CMD_CLEAR = "clear";
 	
 	private static final String CMD_CLEAN = "clean";
+	
+	private static final String CMD_STATS = "stats";
 	
 	private static final long CONNECTION_CHECK_PERIOD = 5000;
 	
@@ -105,7 +112,10 @@ public class Slack {
 		allCommands.add( CMD_STATUS_LONG );
 		allCommands.add( CMD_STATUS_SHORT );
 		allCommands.add( CMD_CLEAR );
+		allCommands.add( CMD_STATS );
 	}
+	
+	private static final NumberFormat averageFormatter = new DecimalFormat( "##0.00" );
 	
 	private String channelName = "kicker";
 	
@@ -132,6 +142,9 @@ public class Slack {
 	@Autowired
 	private PiScreen piScreen;
 	
+	@Autowired
+	private Stats statistics;
+	
 	private Channel channel;
 	
 	private Map< String, User > users;
@@ -142,7 +155,78 @@ public class Slack {
 	
 	private String botId;
 	
-	private List< String > postedMessages = Collections.synchronizedList( new ArrayList<>( HISTORY_SIZE + 1 ) );
+	/**
+	 * Class used for debugging messages flow.
+	 *
+	 */
+	private class Msg {
+		String ts;
+		Double tsDouble;
+		String text;
+		
+		public Msg(String ts, String text) {
+			super();
+			this.ts = ts;
+			try {
+				this.tsDouble = Double.valueOf( ts );
+			} catch ( NumberFormatException e ) {
+				this.tsDouble = Double.valueOf( 0d );
+			}
+			this.text = text;
+		}
+		
+		public String getTs() {
+			return this.ts;
+		}
+		
+		public Double getTsDouble() {
+			return this.tsDouble;
+		}
+		
+		public String getText() {
+			return this.text;
+		}
+		
+		@Override
+		public int hashCode() {
+			final int prime = 31;
+			int result = 1;
+			result = prime * result + getOuterType().hashCode();
+			result = prime * result + ( ( this.ts == null ) ? 0 : this.ts.hashCode() );
+			return result;
+		}
+		
+		@Override
+		public boolean equals( Object obj ) {
+			if ( this == obj )
+				return true;
+			if ( obj == null )
+				return false;
+			if ( getClass() != obj.getClass() )
+				return false;
+			Msg other = (Msg) obj;
+			if ( !getOuterType().equals( other.getOuterType() ) )
+				return false;
+			if ( this.ts == null ) {
+				if ( other.ts != null )
+					return false;
+			} else if ( !this.ts.equals( other.ts ) )
+				return false;
+			return true;
+		}
+		
+		@Override
+		public String toString() {
+			return "Msg [ts=" + this.ts + ", text=" + this.text + "]";
+		}
+		
+		private Slack getOuterType() {
+			return Slack.this;
+		}
+		
+	}
+	
+	private List< Msg > postedMessages = Collections.synchronizedList( new ArrayList<>( HISTORY_SIZE + 1 ) );
 	
 	private volatile boolean rtmClientOpen;
 	
@@ -165,12 +249,19 @@ public class Slack {
 	
 	private synchronized void deleteOldMessages() {
 		try {
+			Collections.sort( postedMessages, new Comparator< Msg >() {
+				
+				@Override
+				public int compare( Msg o1, Msg o2 ) {
+					return o1.getTsDouble().compareTo( o2.getTsDouble() );
+				}
+			} );
 			while ( this.postedMessages.size() > HISTORY_SIZE ) {
-				Iterator< String > messagesIterator = this.postedMessages.iterator();
-				String oldestMessage = messagesIterator.next();
+				Iterator< Msg > messagesIterator = this.postedMessages.iterator();
+				final Msg oldestMessage = messagesIterator.next();
 				messagesIterator.remove();
 				log.info( "Deleting message with ts=" + oldestMessage );
-				boolean isOk = this.webApiClient.deleteMessage( this.channel.getId(), oldestMessage );
+				boolean isOk = this.webApiClient.deleteMessage( this.channel.getId(), oldestMessage.getTs() );
 				log.info( "Deleting message with ts=" + oldestMessage + ", result=" + isOk + ". Old messages to remove in the future: " + this.postedMessages.size() );
 			}
 		} catch ( Throwable e ) {
@@ -179,8 +270,10 @@ public class Slack {
 		
 	}
 	
-	private synchronized void addToMessagesToRemove( String messageTs ) {
-		this.postedMessages.add( messageTs );
+	private synchronized void addToMessagesToRemove( Msg message ) {
+		if ( !this.postedMessages.contains( message ) ) {
+			this.postedMessages.add( message );
+		}
 	}
 	
 	@PostConstruct
@@ -228,8 +321,6 @@ public class Slack {
 		
 		reloadReservationChannelInfo();
 		reloadUsers();
-		
-		clearHistory();
 		
 		initializeRTMClient();
 		
@@ -290,11 +381,11 @@ public class Slack {
 								cancel( user );
 								break;
 							case CMD_PLAY_LONG:
-								// play( user );
+								//play( user );
 								break;
 							case CMD_RELEASE_LONG:
 							case CMD_RELEASE_SHORT:
-								// release( user );
+								//release( user );
 								break;
 							case CMD_STATUS_LONG:
 							case CMD_STATUS_SHORT:
@@ -303,6 +394,9 @@ public class Slack {
 							case CMD_CLEAR:
 							case CMD_CLEAN:
 								clearHistory();
+								break;
+							case CMD_STATS:
+								stats();
 								break;
 						}
 						if ( !haveInfoAboutUser ) {
@@ -313,7 +407,7 @@ public class Slack {
 						if ( ( Slack.this.botId != null ) && Slack.this.botId.equals( userId ) ) {
 							final String messageTs = message.get( "ts" ).asText();
 							log.info( "Adding message to remove later ts=" + messageTs + ", isCommand=" + isCommand );
-							addToMessagesToRemove( messageTs );
+							addToMessagesToRemove( new Msg( messageTs, message.get( "text" ).asText() ) );
 						}
 						deleteOldMessages();
 					} else {
@@ -334,7 +428,7 @@ public class Slack {
 				Slack.this.rtmClientOpen = true;
 				postMessageToChannel( "Service is " + SERVICE_UP );
 				Slack.this.status();
-				Slack.this.piLeds.updateStatus();
+				// Slack.this.piLeds.updateStatus();
 				Slack.this.clearHistory();
 			}
 		} );
@@ -385,9 +479,10 @@ public class Slack {
 	private synchronized void loadHistory() {
 		final History history = this.webApiClient.getChannelHistory( this.channel.getId(), HISTORY_ENTRIES_TO_CLEAR );
 		log.info( "History entries: " + history.getMessages().size() );
+		Collections.reverse( history.getMessages() );
 		for ( final Message message : history.getMessages() ) {
 			if ( message.getUser().equals( this.botId ) ) {
-				addToMessagesToRemove( message.getTs() );
+				addToMessagesToRemove( new Msg( message.getTs(), message.getText() ) );
 			}
 		}
 	}
@@ -551,6 +646,22 @@ public class Slack {
 				sb.append( STATUS_UNKNOWN_ICON + " UNKNOWN" );
 				break;
 		}
+		return sb.toString();
+	}
+	
+	public void stats() {
+		postMessageToChannel( createSttisticsString() );
+	}
+	
+	private String createSttisticsString() {
+		final Statistics stats = statistics.getStatistics();
+		final StringBuilder sb = new StringBuilder();
+		sb.append( ":bar_chart: Kicker service statistics:" ).append("\n");
+		sb.append( ":sunrise: Number of days for statistics: ").append(stats.getNumberOfDays() ).append("\n");
+		sb.append( ":1234: Total number of matches: " + stats.getNumberOfMatchesTotal() ).append("\n");
+		sb.append( ":1234: Number of matches per day: " + ( stats.getNumberOfDays() > 0 ? averageFormatter.format( (double) ( stats.getNumberOfMatchesTotal() / stats.getNumberOfDays() ) ) : "-" ) ).append("\n");
+		sb.append( ":stopwatch: Playing time total: " + TimeFormatUtil.createDayTimeString( stats.getPlayingTimeTotal() ) ).append("\n");
+		sb.append( ":stopwatch: Playing time average: " + ( stats.getNumberOfMatchesTotal() > 0 ?  TimeFormatUtil.createDayTimeString( stats.getPlayingTimeTotal() / stats.getNumberOfMatchesTotal() ) : "-" ) ).append("\n");
 		return sb.toString();
 	}
 	

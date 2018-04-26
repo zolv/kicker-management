@@ -7,16 +7,26 @@ import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 
-	@Entity
-	public class Match {
-		
-		@Id
-		@GeneratedValue( strategy = GenerationType.AUTO )
-		private Long id;
-		
-		private Date started;
-		
-		private Long time;
+@Entity
+public class Reservation {
+	
+	@Id
+	@GeneratedValue( strategy = GenerationType.AUTO )
+	private Long id;
+	
+	private Date started;
+	
+	public void setTaken( boolean taken ) {
+		this.taken = taken;
+	}
+	
+	private Long time;
+	
+	private boolean taken;
+	
+	public boolean isTaken() {
+		return this.taken;
+	}
 	
 	public Long getId() {
 		return id;

@@ -14,77 +14,106 @@ import com.mls.kicker.reservation.engine.Referee;
 import com.mls.kicker.reservation.engine.StateChangeHandler;
 import com.mls.kicker.reservation.engine.StateChangedEvent;
 import com.mls.kicker.reservation.stats.model.Match;
+import com.mls.kicker.reservation.stats.model.Reservation;
 import com.mls.kicker.reservation.stats.repository.MatchRepository;
+import com.mls.kicker.reservation.stats.repository.ReservationRepository;
 
 @Component
 public class Stats {
-
-	private static Logger log = LoggerFactory.getLogger(Stats.class);
-
+	
+	private static Logger log = LoggerFactory.getLogger( Stats.class );
+	
 	@Autowired
 	private Referee referee;
 	
 	@Autowired
-  private MatchRepository repository;
-  
+	private MatchRepository matchRepository;
+
+	@Autowired
+	private ReservationRepository reservationRepository;
+	
 	private StateChangeHandler stateChangeHandler;
 	
 	public Stats() {
 	}
-
+	
 	@PostConstruct
 	public void initialize() {
-
+		
 		this.stateChangeHandler = new StateChangeHandler() {
-
+			
 			@Override
-			public void stateChanged(StateChangedEvent event) {
-				updateStatus(event);
+			public void stateChanged( StateChangedEvent event ) {
+				updateStatus( event );
 			}
 		};
-		this.referee.addStateChangedHandler(this.stateChangeHandler);
-
-		updateStatus(this.referee.status());
+		this.referee.addStateChangedHandler( this.stateChangeHandler );
+		
 	}
-
+	
 	@PreDestroy
 	public synchronized void deinitialize() {
-		this.referee.removeStateChangedHandler(this.stateChangeHandler);
+		this.referee.removeStateChangedHandler( this.stateChangeHandler );
 	}
-
-	public void updateStatus() {
-		this.updateStatus(this.referee.status());
-	}
-
-	public void updateStatus(StateChangedEvent stateChangedEvent) {
-		switch(stateChangedEvent.getCurrentStatus()) {
-			case FREE:
-				switch(stateChangedEvent.getPreviousStatus()) {
-					case FREE:
-						break;
-					case OCCUPIED:
-						final Match match = new Match();
-						final Date now = new Date();
-						match.setStarted( new Date(now.getTime() - stateChangedEvent.getTimePassed() ));
-						match.setFinished( new Date(now.getTime() - stateChangedEvent.getTimePassed() ));
-						repository.save( match );
-						break;
-					case RESERVED:
-						break;
-					default:
-						break;
-					
-				}
-				break;
-			case OCCUPIED:
-				break;
-			case RESERVED:
-				break;
-			default:
-				break;
-			
+	
+	public void updateStatus( StateChangedEvent stateChangedEvent ) {
+		try {
+			final Date now = new Date();
+			switch ( stateChangedEvent.getCurrentStatus() ) {
+				case FREE:
+					switch ( stateChangedEvent.getPreviousStatus() ) {
+						case FREE:
+							break;
+						case OCCUPIED:
+							final Match match = new Match();
+							match.setStarted( new Date( now.getTime() - stateChangedEvent.getTimePassed() ) );
+							match.setTime( stateChangedEvent.getTimePassed() );
+							this.matchRepository.save( match );
+							break;
+						case RESERVED:
+							final Reservation reservationCanceled = new Reservation();
+							reservationCanceled.setStarted( new Date( now.getTime() - stateChangedEvent.getTimePassed() ) );
+							reservationCanceled.setTime( stateChangedEvent.getTimePassed() );
+							reservationCanceled.setTaken( false );
+							this.reservationRepository.save( reservationCanceled );
+							break;
+						default:
+							break;
+					}
+					break;
+				case OCCUPIED:
+					switch ( stateChangedEvent.getPreviousStatus() ) {
+						case FREE:
+							break;
+						case OCCUPIED:
+							break;
+						case RESERVED:
+							final Reservation reservationCanceled = new Reservation();
+							reservationCanceled.setStarted( new Date( now.getTime() - stateChangedEvent.getTimePassed() ) );
+							reservationCanceled.setTime( stateChangedEvent.getTimePassed() );
+							reservationCanceled.setTaken( true );
+							this.reservationRepository.save( reservationCanceled );
+							break;
+						default:
+							break;
+					}
+					break;
+				case RESERVED:
+					break;
+				default:
+					break;
+			}
+		} catch ( Exception e ) {
+			log.error( "Repository exception. ", e );
 		}
 		
 	}
-
+	
+	public Statistics getStatistics() {
+		final Statistics stats = new Statistics();
+		stats.setNumberOfMatchesTotal( matchRepository.count());
+		stats.setPlayingTimeTotal( matchRepository.getPlayingTimeTotal() );
+		stats.setNumberOfDays( matchRepository.getNumberOfDays() );
+		return stats;
+	}
 }
