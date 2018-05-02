@@ -5,8 +5,8 @@
 	<modelVersion>4.0.0</modelVersion>
 
 	<groupId>com.mls.kicker</groupId>
-	<artifactId>kicker-reservation-service</artifactId>
-	<version>0.3.0</version>
+	<artifactId>kicker-management-service</artifactId>
+	<version>0.4.0</version>
 
 	<parent>
 		<groupId>org.springframework.boot</groupId>
@@ -50,9 +50,9 @@
 			<scope>test</scope>
 		</dependency>
 		<dependency>
-			<groupId>com.github.allbegray</groupId>
+			<groupId>allbegray</groupId>
 			<artifactId>slack-api</artifactId>
-			<version>v1.6.0.RELEASE</version>
+			<version>v1.6.1-RELEASE</version>
 		</dependency>
 		<dependency>
 			<groupId>com.pi4j</groupId>

@@ -616,7 +616,7 @@ public class Slack {
 		switch ( stateChangedEvent.getCurrentStatus() ) {
 			case FREE:
 				final Long freeTimePassed = stateChangedEvent.getTimePassed();
-				final String timePassedString = freeTimePassed != null ? " for " + TimeFormatUtil.createHourTimeString( freeTimePassed ) : "";
+				final String timePassedString = freeTimePassed != null ? " for " + TimeFormatUtil.createDayTimeString( freeTimePassed ) : "";
 				sb.append( STATUS_FREE_ICON + " FREE" + timePassedString );
 				break;
 			case OCCUPIED:
@@ -625,7 +625,7 @@ public class Slack {
 				final long timePassed2;
 				if ( timePassed != null && ( timePassed2 = timePassed.longValue() ) > 0L ) {
 					final String playedOrElapsed = new Random( new Date().getTime() ).nextBoolean() ? "played" : "elapsed";
-					detailInfo = byString + " " + playedOrElapsed + " " + TimeFormatUtil.createSimpleTimeString( timePassed2 ) + ", remaining " + TimeFormatUtil.createSimpleTimeString( stateChangedEvent.getTimeLeft() );
+					detailInfo = byString + " " + playedOrElapsed + " " + TimeFormatUtil.createDayTimeString( timePassed2 ) + ", remaining " + TimeFormatUtil.createDayTimeString( stateChangedEvent.getTimeLeft() );
 				} else {
 					detailInfo = byString;
 				}
@@ -636,7 +636,7 @@ public class Slack {
 				final Long timeLeft = stateChangedEvent.getTimeLeft();
 				final long timeLeft2;
 				if ( timeLeft != null && ( timeLeft2 = timeLeft.longValue() ) > 0L ) {
-					detailInfo2 = byString + " for next " + TimeFormatUtil.createSimpleTimeString( timeLeft2 );
+					detailInfo2 = byString + " for next " + TimeFormatUtil.createDayTimeString( timeLeft2 );
 				} else {
 					detailInfo2 = byString;
 				}
@@ -662,6 +662,8 @@ public class Slack {
 		sb.append( ":1234: Number of matches per day: " + ( stats.getNumberOfDays() > 0 ? averageFormatter.format( (double) ( stats.getNumberOfMatchesTotal() / stats.getNumberOfDays() ) ) : "-" ) ).append("\n");
 		sb.append( ":stopwatch: Playing time total: " + TimeFormatUtil.createDayTimeString( stats.getPlayingTimeTotal() ) ).append("\n");
 		sb.append( ":stopwatch: Playing time average: " + ( stats.getNumberOfMatchesTotal() > 0 ?  TimeFormatUtil.createDayTimeString( stats.getPlayingTimeTotal() / stats.getNumberOfMatchesTotal() ) : "-" ) ).append("\n");
+		sb.append( "\n" );
+		sb.append( ":information_source: _Service does not collect any person specific tracking data_" ).append("\n");
 		return sb.toString();
 	}
 	

@@ -26,11 +26,11 @@ public class Referee {
 	
 	public static final long ONE_DAY = 24 * ONE_HOUR;
 	
-	public static long RESERVATION_TIME = 180 * ONE_SECOND;// 60
+	public static final long RESERVATION_TIME = 180 * ONE_SECOND;// 60
 	
-	public static long MAX_PLAYING_TIME = 1200 * ONE_SECOND;// 900;
+	public static final long MAX_PLAYING_TIME = 1200 * ONE_SECOND;// 900;
 	
-	public static long PLAYING_EXTENTION_TIME = 300 * ONE_SECOND;// 900;
+	public static final long PLAYING_EXTENTION_TIME = 300 * ONE_SECOND;// 900;
 	
 	private Timer timer;
 	

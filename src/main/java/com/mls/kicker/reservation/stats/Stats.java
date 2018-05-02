@@ -23,12 +23,14 @@ public class Stats {
 	
 	private static Logger log = LoggerFactory.getLogger( Stats.class );
 	
+	public static final long MIN_PLAYING_TIME = 60000;
+	
 	@Autowired
 	private Referee referee;
 	
 	@Autowired
 	private MatchRepository matchRepository;
-
+	
 	@Autowired
 	private ReservationRepository reservationRepository;
 	
@@ -111,9 +113,9 @@ public class Stats {
 	
 	public Statistics getStatistics() {
 		final Statistics stats = new Statistics();
-		stats.setNumberOfMatchesTotal( matchRepository.count());
-		stats.setPlayingTimeTotal( matchRepository.getPlayingTimeTotal() );
-		stats.setNumberOfDays( matchRepository.getNumberOfDays() );
+		stats.setNumberOfMatchesTotal( this.matchRepository.count() );
+		stats.setPlayingTimeTotal( this.matchRepository.getPlayingTimeTotal() );
+		stats.setNumberOfDays( this.matchRepository.getNumberOfDays() );
 		return stats;
 	}
 }

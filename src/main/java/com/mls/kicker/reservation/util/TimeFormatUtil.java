@@ -12,6 +12,10 @@ public class TimeFormatUtil {
 		return formatTime(timeLeft) + "s";
 	}
 
+	public static String createDayTimeString( Long timeLeftMilis ) {
+		return timeLeftMilis != null ? createDayTimeString( timeLeftMilis.longValue() ) : "";
+	}
+
 	public static String createDayTimeString( long timeLeftMilis ) {
 		long days = timeLeftMilis / Referee.ONE_DAY;
 		long hours = timeLeftMilis % Referee.ONE_DAY  / Referee.ONE_HOUR;
