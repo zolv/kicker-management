@@ -59,7 +59,7 @@ public class Slack {
 	
 	private static Logger log = LoggerFactory.getLogger( Slack.class );
 	
-	private static final int HISTORY_SIZE = 3;
+	private static final int HISTORY_ENTRIES_TO_KEEP = 3;
 	
 	private static final int HISTORY_ENTRIES_TO_CLEAR = 1000;
 	
@@ -102,7 +102,7 @@ public class Slack {
 	private static final Set< String > allCommands;
 	
 	static {
-		allCommands = new HashSet<>( 9 );
+		allCommands = new HashSet<>( 10 );
 		allCommands.add( CMD_CANCEL_LONG );
 		allCommands.add( CMD_PLAY_LONG );
 		allCommands.add( CMD_RELEASE_LONG );
@@ -112,6 +112,7 @@ public class Slack {
 		allCommands.add( CMD_STATUS_LONG );
 		allCommands.add( CMD_STATUS_SHORT );
 		allCommands.add( CMD_CLEAR );
+		allCommands.add( CMD_CLEAN );
 		allCommands.add( CMD_STATS );
 	}
 	
@@ -226,7 +227,7 @@ public class Slack {
 		
 	}
 	
-	private List< Msg > postedMessages = Collections.synchronizedList( new ArrayList<>( HISTORY_SIZE + 1 ) );
+	private List< Msg > postedMessages = Collections.synchronizedList( new ArrayList<>( HISTORY_ENTRIES_TO_KEEP + 1 ) );
 	
 	private volatile boolean rtmClientOpen;
 	
@@ -247,16 +248,16 @@ public class Slack {
 		}
 	}
 	
-	private synchronized void deleteOldMessages() {
+	private synchronized void deleteOldMessages(int numberOfMessegesToPreserve) {
 		try {
-			Collections.sort( postedMessages, new Comparator< Msg >() {
+			Collections.sort( this.postedMessages, new Comparator< Msg >() {
 				
 				@Override
 				public int compare( Msg o1, Msg o2 ) {
 					return o1.getTsDouble().compareTo( o2.getTsDouble() );
 				}
 			} );
-			while ( this.postedMessages.size() > HISTORY_SIZE ) {
+			while ( this.postedMessages.size() > numberOfMessegesToPreserve ) {
 				Iterator< Msg > messagesIterator = this.postedMessages.iterator();
 				final Msg oldestMessage = messagesIterator.next();
 				messagesIterator.remove();
@@ -392,8 +393,10 @@ public class Slack {
 								status();
 								break;
 							case CMD_CLEAR:
-							case CMD_CLEAN:
 								clearHistory();
+								break;
+							case CMD_CLEAN:
+								cleanHistory();
 								break;
 							case CMD_STATS:
 								stats();
@@ -409,7 +412,7 @@ public class Slack {
 							log.info( "Adding message to remove later ts=" + messageTs + ", isCommand=" + isCommand );
 							addToMessagesToRemove( new Msg( messageTs, message.get( "text" ).asText() ) );
 						}
-						deleteOldMessages();
+						cleanHistory();
 					} else {
 						log.info( "No user info. Ignoring." );
 						
@@ -429,7 +432,7 @@ public class Slack {
 				postMessageToChannel( "Service is " + SERVICE_UP );
 				Slack.this.status();
 				// Slack.this.piLeds.updateStatus();
-				Slack.this.clearHistory();
+				Slack.this.cleanHistory();
 			}
 		} );
 		this.rtmClient.addFailureListener( new FailureListener() {
@@ -471,9 +474,17 @@ public class Slack {
 	}
 	
 	private synchronized void clearHistory() {
+		clearHistory( 0 );
+	}
+	
+	private synchronized void cleanHistory() {
+		this.clearHistory( HISTORY_ENTRIES_TO_KEEP );
+	}
+	
+	private synchronized void clearHistory(int historyItemsTokeep) {
 		this.postedMessages.clear();
 		loadHistory();
-		deleteOldMessages();
+		deleteOldMessages(historyItemsTokeep);
 	}
 	
 	private synchronized void loadHistory() {
@@ -654,7 +665,7 @@ public class Slack {
 	}
 	
 	private String createSttisticsString() {
-		final Statistics stats = statistics.getStatistics();
+		final Statistics stats = this.statistics.getStatistics();
 		final StringBuilder sb = new StringBuilder();
 		sb.append( ":bar_chart: Kicker service statistics:" ).append("\n");
 		sb.append( ":sunrise: Number of days for statistics: ").append(stats.getNumberOfDays() ).append("\n");
