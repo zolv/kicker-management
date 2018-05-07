@@ -50,6 +50,14 @@
 			<scope>test</scope>
 		</dependency>
 		<dependency>
+			<!--
+			This is a custom slack-api:
+			https://github.com/zolv/slack-api
+			Note that at this time, original slack-api v1.6.0.RELEASE (with different groupId) does not work
+			as there is needed newer version of http-async-client.
+			Please check my merge request:
+			https://github.com/allbegray/slack-api/pull/49
+			-->
 			<groupId>allbegray</groupId>
 			<artifactId>slack-api</artifactId>
 			<version>v1.6.1-RELEASE</version>

@@ -136,7 +136,7 @@ public class Referee {
 		final StateChangedEvent result;
 		switch ( this.tableStatus ) {
 			case FREE:
-				cancelTasks();
+				cancelTasksWhichOccupiesTable();
 				this.tableStatus = TableStatus.RESERVED;
 				this.userId = byUser;
 				this.reservationTask = new ReservationTask();
@@ -167,10 +167,16 @@ public class Referee {
 				break;
 			case RESERVED:
 				if ( ( this.userId == null ) || this.userId.equals( requestUserId ) ) {
-					cancelTasks();
-					result = new StateChangedEvent( this.tableStatus, TableStatus.FREE, this.userId, this.reservationTimePassed, this.reservationTimeLeft );
+					cancelTasksWhichOccupiesTable();
+					result = new StateChangedEvent( this.tableStatus, TableStatus.FREE, this.userId, Long.valueOf(this.freeTimePassed), (Long)null );
 					this.tableStatus = TableStatus.FREE;
 					this.userId = requestUserId;
+					/*
+					 * FreeTask should be running at this point as reservation was cancelled
+					 * so there is no need to start it again (it would remove free time value).
+					 * But if it is running, no new freeTask is created. But this method is 
+					 * here just in case of some bug so freeTask is not running because of some reason.
+					 */
 					startFreeTask();
 					notifyStateListeners( result );
 				} else {
@@ -184,7 +190,7 @@ public class Referee {
 	private synchronized void reservationTimeout() {
 		switch ( this.tableStatus ) {
 			case RESERVED:
-				cancelTasks();
+				cancelTasksWhichOccupiesTable();
 				final StateChangedEvent event = new StateChangedEvent( this.tableStatus, TableStatus.FREE, this.userId );
 				this.tableStatus = TableStatus.FREE;
 				this.startFreeTask();
@@ -222,7 +228,7 @@ public class Referee {
 		switch ( this.tableStatus ) {
 			default:
 			case FREE:
-				cancelTasks();
+				cancelAllTasks();
 				this.tableStatus = TableStatus.OCCUPIED;
 				this.userId = requestUserId;
 				this.playingTask = new PlayingTask( MAX_PLAYING_TIME, false );
@@ -231,7 +237,7 @@ public class Referee {
 				break;
 			case RESERVED:
 				if ( ( requestUserId == null ) || requestUserId.equals( "-1" ) || requestUserId.equals( this.userId ) ) {
-					cancelTasks();
+					cancelAllTasks();
 					this.tableStatus = TableStatus.OCCUPIED;
 					this.userId = ( requestUserId == null ) || ( requestUserId.equals( "-1" ) ) ? this.userId : requestUserId;
 					this.playingTask = new PlayingTask( MAX_PLAYING_TIME, false );
@@ -246,7 +252,7 @@ public class Referee {
 				break;
 			case OCCUPIED:
 				if ( this.playingTimeLeft < PLAYING_EXTENTION_TIME ) {
-					cancelTasks();
+					cancelAllTasks();
 					// this.userId = requestUserId;
 					this.playingTask = new PlayingTask( PLAYING_EXTENTION_TIME, true );
 					this.timer.schedule( this.playingTask, ONE_SECOND, ONE_SECOND );
@@ -267,7 +273,7 @@ public class Referee {
 				break;
 			case OCCUPIED:
 			default:
-				this.cancelTasks();
+				this.cancelAllTasks();
 				final StateChangedEvent event = new StateChangedEvent( this.tableStatus, TableStatus.FREE, this.userId, this.playingTimePassed, this.playingTimeLeft );
 				this.tableStatus = TableStatus.FREE;
 				this.startFreeTask();
@@ -317,7 +323,7 @@ public class Referee {
 		final StateChangedEvent result;
 		switch ( this.tableStatus ) {
 			case OCCUPIED:
-				cancelTasks();
+				cancelAllTasks();
 				result = new StateChangedEvent( this.tableStatus, TableStatus.FREE, requestUserId, this.playingTimePassed, this.playingTimeLeft );
 				this.userId = requestUserId;
 				this.tableStatus = TableStatus.FREE;
@@ -340,10 +346,15 @@ public class Referee {
 		startFreeTask();
 	}
 	
-	private void cancelTasks() {
+	private void cancelAllTasks() {
 		cancelPlayingTask();
 		cancelReservationTask();
 		cancelFreeTask();
+	}
+	
+	private void cancelTasksWhichOccupiesTable() {
+		cancelPlayingTask();
+		cancelReservationTask();
 	}
 	
 	private void cancelPlayingTask() {
@@ -368,8 +379,10 @@ public class Referee {
 	}
 	
 	private void startFreeTask() {
-		this.freeTask = new FreeTask();
-		this.timer.schedule( this.freeTask, ONE_SECOND, ONE_SECOND );
+		if ( this.freeTask == null ) {
+			this.freeTask = new FreeTask();
+			this.timer.schedule( this.freeTask, ONE_SECOND, ONE_SECOND );
+		}
 	}
 	
 	private synchronized void decreaseReservationTime() {
@@ -402,7 +415,7 @@ public class Referee {
 		final StateChangedEvent result;
 		switch ( this.tableStatus ) {
 			case FREE:
-				result = new StateChangedEvent( this.tableStatus, this.tableStatus, this.userId, Long.valueOf( this.freeTimePassed ), null );
+				result = new StateChangedEvent( this.tableStatus, this.tableStatus, this.userId, Long.valueOf( this.freeTimePassed ), (Long)null );
 				break;
 			case OCCUPIED:
 				result = new StateChangedEvent( this.tableStatus, this.tableStatus, this.userId, this.playingTimePassed, this.playingTimeLeft );
