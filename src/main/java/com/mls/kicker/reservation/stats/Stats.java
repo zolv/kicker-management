@@ -17,6 +17,7 @@ import com.mls.kicker.reservation.stats.model.Match;
 import com.mls.kicker.reservation.stats.model.Reservation;
 import com.mls.kicker.reservation.stats.repository.MatchRepository;
 import com.mls.kicker.reservation.stats.repository.ReservationRepository;
+import com.mls.kicker.reservation.util.TimeFormatUtil;
 
 @Component
 public class Stats {
@@ -116,6 +117,9 @@ public class Stats {
 		stats.setNumberOfMatchesTotal( this.matchRepository.count() );
 		stats.setPlayingTimeTotal( this.matchRepository.getPlayingTimeTotal() );
 		stats.setNumberOfDays( this.matchRepository.getNumberOfDays() );
+		
+		stats.setNumberOfMatchesPerDay( stats.getNumberOfDays().longValue() > 0 ? Double.valueOf( stats.getNumberOfMatchesTotal().doubleValue() / stats.getNumberOfDays().doubleValue() ) : null );
+		stats.setPlayingTimeAverage( stats.getNumberOfMatchesTotal().longValue() > 0 ? Long.valueOf( stats.getPlayingTimeTotal().longValue() / stats.getNumberOfMatchesTotal().longValue() ) : null );
 		return stats;
 	}
 }

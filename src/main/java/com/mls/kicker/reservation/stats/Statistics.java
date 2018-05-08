@@ -1,59 +1,59 @@
 package com.mls.kicker.reservation.stats;
 
 public class Statistics {
-	private long numberOfDays;
+	private Long numberOfDays;
 	
-	private long numberOfMatchesTotal;
-	private double numberOfMatchesPerDay;
-	private long playingTimeTotal;
-	private long playingTimeAverage;
-	private long reservationTimeAverage;
+	private Long numberOfMatchesTotal;
+	private Double numberOfMatchesPerDay;
+	private Long playingTimeTotal;
+	private Long playingTimeAverage;
+	private Long reservationTimeAverage;
 	
-	public long getNumberOfDays() {
+	public Long getNumberOfDays() {
 		return this.numberOfDays;
 	}
 	
-	public void setNumberOfDays( long numberOfDays ) {
+	public void setNumberOfDays( Long numberOfDays ) {
 		this.numberOfDays = numberOfDays;
 	}
 	
-	public long getNumberOfMatchesTotal() {
+	public Long getNumberOfMatchesTotal() {
 		return this.numberOfMatchesTotal;
 	}
 	
-	public void setNumberOfMatchesTotal( long numberOfMatchesTotal ) {
+	public void setNumberOfMatchesTotal( Long numberOfMatchesTotal ) {
 		this.numberOfMatchesTotal = numberOfMatchesTotal;
 	}
 	
-	public double getNumberOfMatchesPerDay() {
+	public Double getNumberOfMatchesPerDay() {
 		return this.numberOfMatchesPerDay;
 	}
 	
-	public void setNumberOfMatchesPerDay( double numberOfMatchesPerDay ) {
+	public void setNumberOfMatchesPerDay( Double numberOfMatchesPerDay ) {
 		this.numberOfMatchesPerDay = numberOfMatchesPerDay;
 	}
 	
-	public long getPlayingTimeTotal() {
+	public Long getPlayingTimeTotal() {
 		return this.playingTimeTotal;
 	}
 	
-	public void setPlayingTimeTotal( long playingTimeTotal ) {
+	public void setPlayingTimeTotal( Long playingTimeTotal ) {
 		this.playingTimeTotal = playingTimeTotal;
 	}
 	
-	public long getPlayingTimeAverage() {
+	public Long getPlayingTimeAverage() {
 		return this.playingTimeAverage;
 	}
 	
-	public void setPlayingTimeAverage( long playingTimeAverage ) {
+	public void setPlayingTimeAverage( Long playingTimeAverage ) {
 		this.playingTimeAverage = playingTimeAverage;
 	}
 	
-	public long getReservationTimeAverage() {
+	public Long getReservationTimeAverage() {
 		return this.reservationTimeAverage;
 	}
 	
-	public void setReservationTimeAverage( long reservationTimeAverage ) {
+	public void setReservationTimeAverage( Long reservationTimeAverage ) {
 		this.reservationTimeAverage = reservationTimeAverage;
 	}
 	

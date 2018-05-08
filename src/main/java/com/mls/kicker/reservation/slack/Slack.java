@@ -668,11 +668,12 @@ public class Slack {
 		final Statistics stats = this.statistics.getStatistics();
 		final StringBuilder sb = new StringBuilder();
 		sb.append( ":bar_chart: Kicker service statistics:" ).append("\n");
+		sb.append( "\n" );
 		sb.append( ":sunrise: Number of days for statistics: ").append(stats.getNumberOfDays() ).append("\n");
 		sb.append( ":1234: Total number of matches: " + stats.getNumberOfMatchesTotal() ).append("\n");
-		sb.append( ":1234: Number of matches per day: " + ( stats.getNumberOfDays() > 0 ? averageFormatter.format( (double) ( stats.getNumberOfMatchesTotal() / stats.getNumberOfDays() ) ) : "-" ) ).append("\n");
+		sb.append( ":1234: Number of matches per day: " + ( stats.getNumberOfMatchesPerDay() != null ? averageFormatter.format(stats.getNumberOfMatchesPerDay()) : "-" ) ).append("\n");
 		sb.append( ":stopwatch: Playing time total: " + TimeFormatUtil.createDayTimeString( stats.getPlayingTimeTotal() ) ).append("\n");
-		sb.append( ":stopwatch: Playing time average: " + ( stats.getNumberOfMatchesTotal() > 0 ?  TimeFormatUtil.createDayTimeString( stats.getPlayingTimeTotal() / stats.getNumberOfMatchesTotal() ) : "-" ) ).append("\n");
+		sb.append( ":stopwatch: Playing time average: " + ( stats.getPlayingTimeAverage() != null ?  TimeFormatUtil.createDayTimeString( stats.getPlayingTimeAverage() ) : "-" ) ).append("\n");
 		sb.append( "\n" );
 		sb.append( ":information_source: _Service does not collect any person specific tracking data_" ).append("\n");
 		return sb.toString();
