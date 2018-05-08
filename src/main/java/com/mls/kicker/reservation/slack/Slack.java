@@ -672,6 +672,7 @@ public class Slack {
 		sb.append( ":sunrise: Number of days for statistics: ").append(stats.getNumberOfDays() ).append("\n");
 		sb.append( ":1234: Total number of matches: " + stats.getNumberOfMatchesTotal() ).append("\n");
 		sb.append( ":1234: Number of matches per day: " + ( stats.getNumberOfMatchesPerDay() != null ? averageFormatter.format(stats.getNumberOfMatchesPerDay()) : "-" ) ).append("\n");
+		sb.append( ":1234: Max number of matches in single day: " + ( stats.getMaxNumberOfMatchesInSingleDay() != null ? stats.getMaxNumberOfMatchesInSingleDay() : "-" ) ).append("\n");
 		sb.append( ":stopwatch: Playing time total: " + TimeFormatUtil.createDayTimeString( stats.getPlayingTimeTotal() ) ).append("\n");
 		sb.append( ":stopwatch: Playing time average: " + ( stats.getPlayingTimeAverage() != null ?  TimeFormatUtil.createDayTimeString( stats.getPlayingTimeAverage() ) : "-" ) ).append("\n");
 		sb.append( "\n" );

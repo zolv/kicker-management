@@ -5,6 +5,7 @@ public class Statistics {
 	
 	private Long numberOfMatchesTotal;
 	private Double numberOfMatchesPerDay;
+	private Long maxNumberOfMatchesInSingleDay;
 	private Long playingTimeTotal;
 	private Long playingTimeAverage;
 	private Long reservationTimeAverage;
@@ -55,6 +56,14 @@ public class Statistics {
 	
 	public void setReservationTimeAverage( Long reservationTimeAverage ) {
 		this.reservationTimeAverage = reservationTimeAverage;
+	}
+	
+	public Long getMaxNumberOfMatchesInSingleDay() {
+		return this.maxNumberOfMatchesInSingleDay;
+	}
+	
+	public void setMaxNumberOfMatchesInSingleDay( Long maxNumberOfMatchesInSingleDay ) {
+		this.maxNumberOfMatchesInSingleDay = maxNumberOfMatchesInSingleDay;
 	}
 	
 }

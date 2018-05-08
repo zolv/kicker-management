@@ -117,6 +117,7 @@ public class Stats {
 		stats.setNumberOfMatchesTotal( this.matchRepository.count() );
 		stats.setPlayingTimeTotal( this.matchRepository.getPlayingTimeTotal() );
 		stats.setNumberOfDays( this.matchRepository.getNumberOfDays() );
+		stats.setMaxNumberOfMatchesInSingleDay( this.matchRepository.maxNumberOfMatchesInOneDay() );
 		
 		stats.setNumberOfMatchesPerDay( stats.getNumberOfDays().longValue() > 0 ? Double.valueOf( stats.getNumberOfMatchesTotal().doubleValue() / stats.getNumberOfDays().doubleValue() ) : null );
 		stats.setPlayingTimeAverage( stats.getNumberOfMatchesTotal().longValue() > 0 ? Long.valueOf( stats.getPlayingTimeTotal().longValue() / stats.getNumberOfMatchesTotal().longValue() ) : null );
