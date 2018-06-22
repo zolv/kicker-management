@@ -10,7 +10,6 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -19,10 +18,13 @@ import java.util.Random;
 import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 
+import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -85,6 +87,8 @@ public class Slack {
 	
 	private static final String CMD_STATS = "stats";
 	
+	private static final String CMD_HELP = "help";
+	
 	private static final long CONNECTION_CHECK_PERIOD = 5000;
 	
 	private static final String STATUS_FREE_ICON = ":heavy_check_mark:";
@@ -99,22 +103,8 @@ public class Slack {
 	
 	protected static final String SERVICE_DOWN = ":black_square_for_stop:";
 	
-	private static final Set< String > allCommands;
-	
-	static {
-		allCommands = new HashSet<>( 10 );
-		allCommands.add( CMD_CANCEL_LONG );
-		allCommands.add( CMD_PLAY_LONG );
-		allCommands.add( CMD_RELEASE_LONG );
-		allCommands.add( CMD_RELEASE_SHORT );
-		allCommands.add( CMD_RESERVE_LONG );
-		allCommands.add( CMD_RESERVE_SHORT );
-		allCommands.add( CMD_STATUS_LONG );
-		allCommands.add( CMD_STATUS_SHORT );
-		allCommands.add( CMD_CLEAR );
-		allCommands.add( CMD_CLEAN );
-		allCommands.add( CMD_STATS );
-	}
+	private static final Set< String > allCommands = Stream
+			.of( CMD_CANCEL_LONG, CMD_PLAY_LONG, CMD_RELEASE_LONG, CMD_RELEASE_SHORT, CMD_RESERVE_LONG, CMD_RESERVE_SHORT, CMD_STATUS_LONG, CMD_STATUS_SHORT, CMD_CLEAR, CMD_CLEAN, CMD_STATS, CMD_HELP ).collect( Collectors.toSet() );;
 	
 	private static final NumberFormat averageFormatter = new DecimalFormat( "##0.00" );
 	
@@ -248,7 +238,7 @@ public class Slack {
 		}
 	}
 	
-	private synchronized void deleteOldMessages(int numberOfMessegesToPreserve) {
+	private synchronized void deleteOldMessages( int numberOfMessegesToPreserve ) {
 		try {
 			Collections.sort( this.postedMessages, new Comparator< Msg >() {
 				
@@ -382,11 +372,11 @@ public class Slack {
 								cancel( user );
 								break;
 							case CMD_PLAY_LONG:
-								//play( user );
+								// play( user );
 								break;
 							case CMD_RELEASE_LONG:
 							case CMD_RELEASE_SHORT:
-								//release( user );
+								// release( user );
 								break;
 							case CMD_STATUS_LONG:
 							case CMD_STATUS_SHORT:
@@ -400,6 +390,9 @@ public class Slack {
 								break;
 							case CMD_STATS:
 								stats();
+								break;
+							case CMD_HELP:
+								help();
 								break;
 						}
 						if ( !haveInfoAboutUser ) {
@@ -481,10 +474,10 @@ public class Slack {
 		this.clearHistory( HISTORY_ENTRIES_TO_KEEP );
 	}
 	
-	private synchronized void clearHistory(int historyItemsTokeep) {
+	private synchronized void clearHistory( int historyItemsTokeep ) {
 		this.postedMessages.clear();
 		loadHistory();
-		deleteOldMessages(historyItemsTokeep);
+		deleteOldMessages( historyItemsTokeep );
 	}
 	
 	private synchronized void loadHistory() {
@@ -667,17 +660,50 @@ public class Slack {
 	private String createSttisticsString() {
 		final Statistics stats = this.statistics.getStatistics();
 		final StringBuilder sb = new StringBuilder();
-		sb.append( ":bar_chart: Kicker service statistics:" ).append("\n");
+		sb.append( ":bar_chart: Kicker service statistics:" ).append( "\n" );
 		sb.append( "\n" );
-		sb.append( ":sunrise: Number of days for statistics: ").append(stats.getNumberOfDays() ).append("\n");
-		sb.append( ":1234: Total number of matches: " + stats.getNumberOfMatchesTotal() ).append("\n");
-		sb.append( ":1234: Number of matches per day: " + ( stats.getNumberOfMatchesPerDay() != null ? averageFormatter.format(stats.getNumberOfMatchesPerDay()) : "-" ) ).append("\n");
-		sb.append( ":1234: Max number of matches in single day: " + ( stats.getMaxNumberOfMatchesInSingleDay() != null ? stats.getMaxNumberOfMatchesInSingleDay() : "-" ) ).append("\n");
-		sb.append( ":stopwatch: Playing time total: " + TimeFormatUtil.createDayTimeString( stats.getPlayingTimeTotal() ) ).append("\n");
-		sb.append( ":stopwatch: Playing time average: " + ( stats.getPlayingTimeAverage() != null ?  TimeFormatUtil.createDayTimeString( stats.getPlayingTimeAverage() ) : "-" ) ).append("\n");
+		sb.append( ":sunrise: Number of days for statistics: " ).append( stats.getNumberOfDays() ).append( "\n" );
+		sb.append( ":1234: Total number of matches: " + stats.getNumberOfMatchesTotal() ).append( "\n" );
+		sb.append( ":1234: Number of matches per day: " + ( stats.getNumberOfMatchesPerDay() != null ? averageFormatter.format( stats.getNumberOfMatchesPerDay() ) : "-" ) ).append( "\n" );
+		sb.append( ":1234: Max number of matches in single day: " + ( stats.getMaxNumberOfMatchesInSingleDay() != null ? stats.getMaxNumberOfMatchesInSingleDay() : "-" ) ).append( "\n" );
+		sb.append( ":stopwatch: Playing time total: " + TimeFormatUtil.createDayTimeString( stats.getPlayingTimeTotal() ) ).append( "\n" );
+		sb.append( ":stopwatch: Playing time average: " + ( stats.getPlayingTimeAverage() != null ? TimeFormatUtil.createDayTimeString( stats.getPlayingTimeAverage() ) : "-" ) ).append( "\n" );
 		sb.append( "\n" );
-		sb.append( ":information_source: _Service does not collect any person specific tracking data_" ).append("\n");
+		sb.append( ":information_source: _Service does not collect any person specific tracking data_" ).append( "\n" );
 		return sb.toString();
+	}
+	
+	public void help() {
+		postMessageToChannel( createHelpString() );
+	}
+	
+	private String createHelpString() {
+		final StringBuilder sb = new StringBuilder();
+		sb.append( ":soccer: Kicker service help center" ).append( "\n" );
+		sb.append( "\n" );
+		sb.append( ":scales: User's manual: " ).append( "\n" );
+		sb.append( "\n" );
+		sb.append( "The purpose of kicker service device is to inform us about the current status of kicker table. It should decrease the time wasted on trips to and from kicker to check if it is free to play." ).append( "\n" );
+		sb.append( "When You start playing - press red button on the device. A message is sent to this channel saying that the kicker table is occupied. You have " ).append( TimeFormatUtil.createDayTimeString( Referee.MAX_PLAYING_TIME ) )
+				.append( " before the game is timed out. In rare cases You can extend the playing time by " ).append( TimeFormatUtil.createDayTimeString( Referee.PLAYING_EXTENTION_TIME ) ).append( " by pressing red button again during Your play." )
+				.append( "\n" );
+		sb.append( "When You have finished - press green button on the device. A message is sent to this channel saying that the kicker table is free to play. If You forget to do it, time-out feature will do it anyway." ).append( "\n" );
+		sb.append( "When You are at Your desk, You can reserve the kicker by sending _reserve_ command to this channel. You have now " ).append( TimeFormatUtil.createDayTimeString( Referee.RESERVATION_TIME ) )
+				.append( " for Your trip to the kicker table. Please respect other people's reservations." ).append( "\n" );
+		sb.append( "\n" );
+		sb.append( ":bookmark_tabs: Available commands:" ).append( "\n" );
+		sb.append( "\n" );
+		sb.append( ":warning: _reserve_ or _res_ - Reserve kicker for " ).append( TimeFormatUtil.createDayTimeString( Referee.RESERVATION_TIME ) ).append( "\n" );
+		sb.append( ":warning: _cancel_ - Cancel reservation" ).append( "\n" );
+		sb.append( ":vertical_traffic_light: _status_ or _st_ - Show current status" ).append( "\n" );
+		sb.append( ":bar_chart: _stats_  Show statistics" ).append( "\n" );
+		sb.append( ":question: _help_ - Show this help message" );
+		return sb.toString();
+	}
+	
+	@Test
+	public void t() {
+		System.out.println( createHelpString() );
 	}
 	
 	private String createByString( String userId ) {
