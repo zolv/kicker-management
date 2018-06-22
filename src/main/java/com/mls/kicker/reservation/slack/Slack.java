@@ -24,7 +24,6 @@ import java.util.stream.Stream;
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 
-import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -699,11 +698,6 @@ public class Slack {
 		sb.append( ":bar_chart: _stats_  Show statistics" ).append( "\n" );
 		sb.append( ":question: _help_ - Show this help message" );
 		return sb.toString();
-	}
-	
-	@Test
-	public void t() {
-		System.out.println( createHelpString() );
 	}
 	
 	private String createByString( String userId ) {
