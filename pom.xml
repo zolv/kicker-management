@@ -60,7 +60,7 @@
 			-->
 			<groupId>allbegray</groupId>
 			<artifactId>slack-api</artifactId>
-			<version>v1.6.1-RELEASE</version>
+			<version>1.7.0-RELEASE</version>
 		</dependency>
 		<dependency>
 			<groupId>com.pi4j</groupId>
